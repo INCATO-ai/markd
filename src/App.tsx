@@ -174,12 +174,8 @@ export function App() {
             e.preventDefault();
             handleToggleSource();
             break;
-          case "F":
-            if (e.shiftKey) {
-              e.preventDefault();
-              setFocusMode((f) => !f);
-            }
-            break;
+          // Focus Mode (Ctrl+Shift+F) disabled in v0.1.0 — see TODO.md.
+          // Re-enable by restoring this case.
         }
       }
     };

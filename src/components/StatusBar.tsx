@@ -20,12 +20,10 @@ export function StatusBar({
   theme,
   lastSaved,
   sourceMode,
-  focusMode,
   onThemeChange,
   onExportHtml,
   onExportPdf,
   onToggleSource,
-  onToggleFocusMode,
 }: StatusBarProps) {
   const [stats, setStats] = useState({ words: 0, chars: 0 });
   const [showSaved, setShowSaved] = useState(false);
@@ -59,14 +57,7 @@ export function StatusBar({
       <div className="right">
         <span>{stats.words} words</span>
         <span>{stats.chars} chars</span>
-        <button
-          onClick={onToggleFocusMode}
-          style={btnStyle}
-          title="Focus Mode (Ctrl+Shift+F)"
-          className={focusMode ? "status-btn-active" : ""}
-        >
-          Focus
-        </button>
+        {/* Focus button hidden in v0.1.0 until block-dimming bug is fixed. See TODO.md. */}
         <button onClick={onToggleSource} style={btnStyle} title="Toggle Source (Ctrl+/)">
           {sourceMode ? "WYSIWYG" : "Source"}
         </button>

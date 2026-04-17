@@ -52,7 +52,6 @@ export function Menubar(props: MenubarProps) {
     editor,
     sidebarCollapsed,
     sourceMode,
-    focusMode,
     activeTheme,
     themes,
     onNew,
@@ -66,7 +65,6 @@ export function Menubar(props: MenubarProps) {
     onReplace,
     onToggleSidebar,
     onToggleSource,
-    onToggleFocusMode,
     onThemeSelect,
   } = props;
 
@@ -144,12 +142,10 @@ export function Menubar(props: MenubarProps) {
           onSelect: onToggleSource,
           checked: sourceMode,
         },
-        {
-          label: "Toggle Focus Mode",
-          shortcut: "Ctrl+Shift+F",
-          onSelect: onToggleFocusMode,
-          checked: focusMode,
-        },
+        // Focus Mode hidden in v0.1.0 — typewriter-scroll half works but
+        // block dimming doesn't render. Re-enable once fixed. Handler and
+        // state (focusMode, onToggleFocusMode) stay wired so nothing else
+        // needs touching when we restore the menu entry.
         "separator",
         {
           label: "Theme",
