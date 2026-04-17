@@ -1,0 +1,51 @@
+import StarterKit from "@tiptap/starter-kit";
+import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import Table from "@tiptap/extension-table";
+import TableRow from "@tiptap/extension-table-row";
+import TableCell from "@tiptap/extension-table-cell";
+import TableHeader from "@tiptap/extension-table-header";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
+import Placeholder from "@tiptap/extension-placeholder";
+import { common, createLowlight } from "lowlight";
+import { SearchAndReplace } from "@/lib/search-and-replace";
+import { ImagePasteDrop } from "@/lib/image-paste-drop";
+import { ResolvedImage } from "@/lib/resolved-image";
+
+const lowlight = createLowlight(common);
+
+export interface ExtensionOptions {
+  getFileDir: () => string;
+}
+
+export function getExtensions(opts: ExtensionOptions) {
+  return [
+    StarterKit.configure({
+      codeBlock: false, // replaced by CodeBlockLowlight
+    }),
+    CodeBlockLowlight.configure({
+      lowlight,
+      defaultLanguage: "plaintext",
+    }),
+    ResolvedImage.configure({
+      inline: true,
+      allowBase64: true,
+      getFileDir: opts.getFileDir,
+    }),
+    Table.configure({
+      resizable: true,
+    }),
+    TableRow,
+    TableCell,
+    TableHeader,
+    TaskList,
+    TaskItem.configure({
+      nested: true,
+    }),
+    Placeholder.configure({
+      placeholder: "Start writing…",
+    }),
+    SearchAndReplace,
+    ImagePasteDrop,
+  ];
+}

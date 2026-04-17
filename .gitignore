@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build artifacts
+dist/
+src-tauri/target/
+src-tauri/gen/
+out/
+
+# TypeScript incremental
+*.tsbuildinfo
+
+# Logs
+*.log
+stderr.txt
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Memory / local state (don't publish working notes)
+MEMORY.md
+TODO.md
+CLAUDE.md
+.claude/

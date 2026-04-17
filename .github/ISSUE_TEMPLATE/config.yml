@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Feature request
+    url: https://github.com/INCATO-ai/markd/discussions/categories/ideas
+    about: "Feature requests go in Discussions, not Issues. I'll look, but I build this on weekends — no promises."
+  - name: Questions and general discussion
+    url: https://github.com/INCATO-ai/markd/discussions
+    about: "For anything that isn't a reproducible bug, start a discussion."

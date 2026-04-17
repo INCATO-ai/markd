@@ -1,0 +1,914 @@
+/* Markd Base Styles — all themes build on this */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size);
+  line-height: var(--line-height);
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* App Layout */
+.markd-app {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.markd-sidebar {
+  width: var(--sidebar-width, 260px);
+  min-width: 200px;
+  max-width: 400px;
+  height: 100%;
+  background: var(--side-bar-bg-color);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: width 0.2s ease;
+}
+
+.markd-sidebar.collapsed {
+  width: 0;
+  min-width: 0;
+  border-right: none;
+}
+
+.markd-sidebar-header {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.markd-sidebar-header h2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.7;
+}
+
+.markd-sidebar-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.markd-sidebar-actions button {
+  background: none;
+  border: none;
+  color: var(--control-text-color);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.markd-sidebar-actions button:hover {
+  background: var(--item-hover-bg-color);
+  color: var(--item-hover-text-color);
+}
+
+.markd-file-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.markd-file-item {
+  display: flex;
+  align-items: center;
+  padding: 4px 16px;
+  cursor: pointer;
+  color: var(--text-color);
+  font-size: 13px;
+  gap: 6px;
+  user-select: none;
+}
+
+.markd-file-item:hover {
+  background: var(--item-hover-bg-color);
+  color: var(--item-hover-text-color);
+}
+
+.markd-file-item.active {
+  background: var(--active-file-bg-color);
+  color: var(--active-file-text-color);
+}
+
+.markd-file-item .indent {
+  flex-shrink: 0;
+}
+
+.markd-file-item .icon {
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+  opacity: 0.6;
+}
+
+.markd-file-item .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Editor Area */
+.markd-editor-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Topbar (sidebar toggle + toolbar) */
+.markd-topbar {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-color);
+  flex-shrink: 0;
+}
+
+/* Menubar (File | Edit | View | Help) */
+.markd-menubar {
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-color);
+  border-bottom: 1px solid var(--border-color);
+  padding: 0 4px;
+  flex-shrink: 0;
+  user-select: none;
+  font-size: 13px;
+}
+
+.markd-menubar-root {
+  position: relative;
+}
+
+.markd-menubar-label {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 6px 10px;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.markd-menubar-label:hover,
+.markd-menubar-root.open .markd-menubar-label {
+  background: var(--item-hover-bg-color);
+  color: var(--item-hover-text-color, var(--text-color));
+}
+
+.markd-menubar-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 220px;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  padding: 4px 0;
+  z-index: 1000;
+}
+
+.markd-menubar-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 20px 1fr auto 12px;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  color: var(--text-color);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.markd-menubar-item:hover:not(.disabled) {
+  background: var(--item-hover-bg-color);
+}
+
+.markd-menubar-item.disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.markd-menubar-check {
+  font-size: 11px;
+  text-align: center;
+  color: var(--text-color);
+}
+
+.markd-menubar-item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.markd-menubar-shortcut {
+  color: var(--text-color);
+  opacity: 0.5;
+  font-size: 12px;
+  font-family: var(--monospace);
+}
+
+.markd-menubar-chevron {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.markd-menubar-separator {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 0;
+}
+
+.markd-menubar-submenu {
+  position: absolute;
+  top: -5px;
+  left: 100%;
+  min-width: 180px;
+}
+
+.markd-sidebar-toggle {
+  background: none;
+  border: none;
+  border-right: 1px solid var(--border-color);
+  color: var(--control-text-color);
+  cursor: pointer;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+}
+
+.markd-sidebar-toggle:hover {
+  background: var(--item-hover-bg-color);
+  color: var(--text-color);
+}
+
+.markd-toolbar {
+  display: flex;
+  align-items: center;
+  padding: 4px 16px;
+  gap: 2px;
+  flex: 1;
+}
+
+.markd-toolbar button {
+  background: none;
+  border: none;
+  color: var(--control-text-color);
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: var(--monospace);
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.markd-toolbar button:hover {
+  background: var(--item-hover-bg-color);
+  color: var(--text-color);
+}
+
+.markd-toolbar button.active {
+  background: var(--select-text-bg-color);
+  color: var(--text-color);
+}
+
+.markd-toolbar .separator {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 4px;
+}
+
+.markd-editor-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* #write — the Typora-compatible editor container */
+#write {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 30px 60px 100px;
+  min-height: 100%;
+  outline: none;
+}
+
+#write > *:first-child {
+  margin-top: 0;
+}
+
+/* Typography */
+#write h1, #write h2, #write h3,
+#write h4, #write h5, #write h6 {
+  margin-top: 1.2em;
+  margin-bottom: 0.6em;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+#write h1 { font-size: 2em; }
+#write h2 { font-size: 1.6em; }
+#write h3 { font-size: 1.3em; }
+#write h4 { font-size: 1.1em; }
+#write h5 { font-size: 1em; }
+#write h6 { font-size: 0.9em; opacity: 0.8; }
+
+#write p {
+  margin-bottom: 0.8em;
+  word-wrap: break-word;
+}
+
+#write a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+#write a:hover {
+  text-decoration: underline;
+}
+
+/* Lists */
+#write ul, #write ol {
+  padding-left: 2em;
+  margin-bottom: 0.8em;
+}
+
+#write li {
+  margin-bottom: 0.2em;
+}
+
+#write li > p {
+  margin-bottom: 0.4em;
+}
+
+/* Task lists */
+#write ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+#write ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+#write ul[data-type="taskList"] li label {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+#write ul[data-type="taskList"] li div {
+  flex: 1;
+}
+
+/* Blockquote */
+#write blockquote {
+  border-left: 4px solid var(--blockquote-border-color, #ddd);
+  padding: 0.4em 1em;
+  margin: 0.8em 0;
+  color: var(--blockquote-color, #666);
+}
+
+#write blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+/* Code */
+#write code {
+  font-family: var(--monospace);
+  font-size: 0.9em;
+  background: var(--code-bg-color, rgba(0, 0, 0, 0.05));
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+#write pre {
+  background: var(--code-block-bg-color);
+  border: 1px solid var(--code-block-border-color, var(--border-color));
+  border-radius: 6px;
+  padding: 16px;
+  margin: 0.8em 0;
+  overflow-x: auto;
+}
+
+#write pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.85em;
+  line-height: 1.6;
+}
+
+/* Syntax highlighting */
+.hljs-comment,
+.hljs-quote { color: var(--code-comment, #6a737d); }
+.hljs-keyword,
+.hljs-selector-tag { color: var(--code-keyword, #d73a49); }
+.hljs-string,
+.hljs-attr { color: var(--code-string, #032f62); }
+.hljs-number,
+.hljs-literal { color: var(--code-number, #005cc5); }
+.hljs-built_in,
+.hljs-type { color: var(--code-builtin, #6f42c1); }
+.hljs-title,
+.hljs-function { color: var(--code-function, #6f42c1); }
+.hljs-variable { color: var(--code-variable, #e36209); }
+
+/* Horizontal rule */
+#write hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 1.5em 0;
+}
+
+/* Images */
+#write img {
+  max-width: 100%;
+  border-radius: 4px;
+}
+
+/* Tables */
+#write table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.8em 0;
+}
+
+#write th, #write td {
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+#write th {
+  background: var(--table-header-bg, rgba(0, 0, 0, 0.04));
+  font-weight: 600;
+}
+
+/* Status Bar */
+.markd-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 16px;
+  font-size: 12px;
+  color: var(--control-text-color);
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-color);
+  flex-shrink: 0;
+  gap: 16px;
+}
+
+.markd-status-bar .left,
+.markd-status-bar .right {
+  display: flex;
+  gap: 16px;
+}
+
+/* Sidebar Tabs */
+.markd-sidebar-tabs {
+  display: flex;
+  gap: 0;
+}
+
+.markd-sidebar-tab {
+  background: none;
+  border: none;
+  color: var(--control-text-color);
+  cursor: pointer;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.markd-sidebar-tab:hover {
+  background: var(--item-hover-bg-color);
+  color: var(--item-hover-text-color);
+}
+
+.markd-sidebar-tab.active {
+  color: var(--text-color);
+  background: var(--item-hover-bg-color);
+}
+
+/* Outline Panel */
+.markd-outline {
+  padding: 4px 0;
+}
+
+.markd-outline-item {
+  display: flex;
+  align-items: center;
+  padding: 4px 16px;
+  cursor: pointer;
+  color: var(--text-color);
+  font-size: 13px;
+  gap: 8px;
+  user-select: none;
+  border-radius: 0;
+  transition: background 0.1s;
+}
+
+.markd-outline-item:hover {
+  background: var(--item-hover-bg-color);
+  color: var(--item-hover-text-color);
+}
+
+.markd-outline-level {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--control-text-color);
+  font-family: var(--monospace);
+  opacity: 0.6;
+  min-width: 20px;
+}
+
+.markd-outline-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.markd-outline-empty {
+  padding: 16px;
+  opacity: 0.5;
+  font-size: 13px;
+}
+
+/* Recent Files */
+.markd-recent-files {
+  padding: 4px 0;
+}
+
+.markd-recent-header {
+  padding: 8px 16px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--control-text-color);
+  opacity: 0.7;
+}
+
+/* Focus Mode */
+.focus-mode #write > .focus-dimmed {
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
+}
+
+.focus-mode #write > .focus-active {
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+/* Status bar active button */
+.markd-status-bar .status-btn-active {
+  background: var(--select-text-bg-color) !important;
+  color: var(--text-color) !important;
+  border-radius: 3px;
+}
+
+/* Placeholder */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--control-text-color);
+  pointer-events: none;
+  height: 0;
+  opacity: 0.5;
+}
+
+/* Selection */
+::selection {
+  background: var(--select-text-bg-color);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-color, rgba(0, 0, 0, 0.15));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-hover-color, rgba(0, 0, 0, 0.25));
+}
+
+/* Editor content wrapper (holds find-replace overlay + editor/source) */
+.markd-editor-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Find and Replace */
+.markd-find-replace {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  z-index: 50;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 340px;
+}
+
+.markd-find-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.markd-find-input {
+  flex: 1;
+  background: var(--code-bg-color, rgba(0, 0, 0, 0.05));
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  color: var(--text-color);
+  outline: none;
+  font-family: var(--monospace);
+}
+
+.markd-find-input:focus {
+  border-color: var(--primary-color);
+}
+
+.markd-find-count {
+  font-size: 11px;
+  color: var(--control-text-color);
+  white-space: nowrap;
+  min-width: 60px;
+  text-align: center;
+}
+
+.markd-find-btn {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--control-text-color);
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.markd-find-btn:hover {
+  background: var(--item-hover-bg-color);
+  color: var(--text-color);
+}
+
+.markd-find-btn.active {
+  background: var(--select-text-bg-color);
+  color: var(--text-color);
+}
+
+/* Search highlight decorations */
+.markd-search-highlight {
+  background: rgba(255, 215, 0, 0.35);
+  border-radius: 2px;
+}
+
+.markd-search-current {
+  background: rgba(255, 165, 0, 0.6);
+  outline: 2px solid rgba(255, 140, 0, 0.8);
+}
+
+/* Source Editor */
+.markd-source-editor {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+}
+
+.markd-source-textarea {
+  flex: 1;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 30px 60px 100px;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  color: var(--text-color);
+  font-family: var(--monospace);
+  font-size: var(--font-size);
+  line-height: var(--line-height);
+  tab-size: 2;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  width: 100%;
+}
+
+/* Saved indicator */
+.markd-saved-indicator {
+  color: var(--primary-color, #4a9);
+  font-size: 11px;
+  font-weight: 600;
+  animation: markd-saved-fade 2s ease-out forwards;
+}
+
+@keyframes markd-saved-fade {
+  0% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Context Menu */
+.markd-context-menu {
+  position: fixed;
+  z-index: 100;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 200px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.markd-context-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 16px;
+  background: none;
+  border: none;
+  color: var(--text-color);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.markd-context-item:hover {
+  background: var(--item-hover-bg-color);
+  color: var(--item-hover-text-color);
+}
+
+.markd-context-shortcut {
+  font-size: 11px;
+  color: var(--control-text-color);
+  margin-left: 24px;
+}
+
+.markd-context-separator {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 0;
+}
+
+/* Print / Export — hide every chrome element, force a clean document view. */
+@media print {
+  .markd-sidebar,
+  .markd-menubar,
+  .markd-topbar,
+  .markd-toolbar,
+  .markd-sidebar-toggle,
+  .markd-status-bar,
+  .markd-find-replace,
+  .markd-context-menu {
+    display: none !important;
+  }
+
+  /* Let the page flow naturally instead of scrolling inside a fixed container */
+  html,
+  body,
+  .markd-app,
+  .markd-editor-area,
+  .markd-editor-content,
+  .markd-editor-scroll {
+    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+
+  /* Always print as black-on-white regardless of active theme */
+  #write,
+  #write * {
+    color: black !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  /* Restore the code-block tint so printed code is visually bounded */
+  #write pre,
+  #write pre code {
+    background: #f5f5f5 !important;
+    border: 1px solid #ddd;
+  }
+
+  #write code {
+    background: #f0f0f0 !important;
+    padding: 1px 4px;
+  }
+
+  /* Focus-mode dimming would wash out half the document on print */
+  #write > .focus-dimmed,
+  #write > .focus-active {
+    opacity: 1 !important;
+  }
+
+  #write {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 11pt;
+    line-height: 1.5;
+  }
+
+  /* Avoid splitting these across pages where possible */
+  #write h1,
+  #write h2,
+  #write h3,
+  #write h4,
+  #write pre,
+  #write blockquote,
+  #write table {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  #write h1,
+  #write h2,
+  #write h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  #write img {
+    max-width: 100% !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  #write a {
+    text-decoration: underline;
+  }
+
+  /* Print the URL beside each link so the content is still usable on paper */
+  #write a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    color: #555 !important;
+    word-break: break-all;
+  }
+
+  @page {
+    margin: 0.75in;
+  }
+}

@@ -1,0 +1,42 @@
+/* Markd Default Theme */
+[data-theme="markd"] {
+  /* Core */
+  --bg-color: #ffffff;
+  --text-color: #1a1a2e;
+  --primary-color: #4361ee;
+  --font-family: "Segoe UI", "Inter", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-size: 16px;
+  --line-height: 1.7;
+  --monospace: "Cascadia Code", "JetBrains Mono", "Fira Code", "SF Mono", Consolas, monospace;
+
+  /* Sidebar */
+  --side-bar-bg-color: #f8f9fa;
+  --border-color: #e9ecef;
+  --control-text-color: #868e96;
+  --item-hover-bg-color: #e9ecef;
+  --item-hover-text-color: inherit;
+  --active-file-bg-color: #e7f0ff;
+  --active-file-text-color: #1a1a2e;
+
+  /* Editor */
+  --select-text-bg-color: #b5d5ff;
+  --blockquote-border-color: #4361ee;
+  --blockquote-color: #495057;
+  --code-bg-color: #eef0f2;
+  --code-block-bg-color: #f3f4f6;
+  --code-block-border-color: #d8dade;
+  --table-header-bg: #f1f3f5;
+
+  /* Syntax */
+  --code-comment: #868e96;
+  --code-keyword: #e03131;
+  --code-string: #2f9e44;
+  --code-number: #4361ee;
+  --code-builtin: #7048e8;
+  --code-function: #1971c2;
+  --code-variable: #e8590c;
+
+  /* Scrollbar */
+  --scrollbar-color: rgba(0, 0, 0, 0.12);
+  --scrollbar-hover-color: rgba(0, 0, 0, 0.2);
+}

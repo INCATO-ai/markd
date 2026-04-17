@@ -1,0 +1,37 @@
+/* Night Theme — dark mode */
+[data-theme="night"] {
+  --bg-color: #1e1e2e;
+  --text-color: #cdd6f4;
+  --primary-color: #89b4fa;
+  --font-family: "Segoe UI", "Inter", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-size: 16px;
+  --line-height: 1.7;
+  --monospace: "Cascadia Code", "JetBrains Mono", "Fira Code", "SF Mono", Consolas, monospace;
+
+  --side-bar-bg-color: #181825;
+  --border-color: #313244;
+  --control-text-color: #6c7086;
+  --item-hover-bg-color: #313244;
+  --item-hover-text-color: #cdd6f4;
+  --active-file-bg-color: #45475a;
+  --active-file-text-color: #cdd6f4;
+
+  --select-text-bg-color: rgba(137, 180, 250, 0.3);
+  --blockquote-border-color: #89b4fa;
+  --blockquote-color: #a6adc8;
+  --code-bg-color: #2a2a3c;
+  --code-block-bg-color: #11111b;
+  --code-block-border-color: #313244;
+  --table-header-bg: rgba(255, 255, 255, 0.05);
+
+  --code-comment: #6c7086;
+  --code-keyword: #cba6f7;
+  --code-string: #a6e3a1;
+  --code-number: #fab387;
+  --code-builtin: #89b4fa;
+  --code-function: #89dceb;
+  --code-variable: #f38ba8;
+
+  --scrollbar-color: rgba(255, 255, 255, 0.1);
+  --scrollbar-hover-color: rgba(255, 255, 255, 0.2);
+}
