@@ -7,11 +7,13 @@ interface StatusBarProps {
   lastSaved: number | null;
   sourceMode: boolean;
   focusMode: boolean;
+  fullWidth: boolean;
   onThemeChange: () => void;
   onExportHtml: () => void;
   onExportPdf: () => void;
   onToggleSource: () => void;
   onToggleFocusMode: () => void;
+  onToggleFullWidth: () => void;
 }
 
 export function StatusBar({
@@ -20,10 +22,12 @@ export function StatusBar({
   theme,
   lastSaved,
   sourceMode,
+  fullWidth,
   onThemeChange,
   onExportHtml,
   onExportPdf,
   onToggleSource,
+  onToggleFullWidth,
 }: StatusBarProps) {
   const [stats, setStats] = useState({ words: 0, chars: 0 });
   const [showSaved, setShowSaved] = useState(false);
@@ -60,6 +64,14 @@ export function StatusBar({
         {/* Focus button hidden in v0.1.0 until block-dimming bug is fixed. See TODO.md. */}
         <button onClick={onToggleSource} style={btnStyle} title="Toggle Source (Ctrl+/)">
           {sourceMode ? "WYSIWYG" : "Source"}
+        </button>
+        <button
+          onClick={onToggleFullWidth}
+          style={btnStyle}
+          className={fullWidth ? "status-btn-active" : ""}
+          title="Toggle Full Width"
+        >
+          {fullWidth ? "Column" : "Full"}
         </button>
         <button onClick={onExportHtml} style={btnStyle}>
           HTML

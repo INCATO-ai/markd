@@ -13,6 +13,7 @@ import { FindReplace } from "@/components/FindReplace";
 import { SourceEditor } from "@/components/SourceEditor";
 import { ContextMenu } from "@/components/ContextMenu";
 import { useRecentFiles } from "@/hooks/use-recent-files";
+import { useFullWidth } from "@/hooks/use-full-width";
 import { exportAsHtml, exportAsPdf } from "@/lib/file-system";
 
 function isTauri(): boolean {
@@ -29,6 +30,7 @@ export function App() {
   const [sourceMarkdown, setSourceMarkdown] = useState("");
   const [focusMode, setFocusMode] = useState(false);
   const { activeTheme, switchTheme, themes } = useTheme();
+  const { fullWidth, toggleFullWidth } = useFullWidth();
   const fileState = useFileState();
   const { recentFiles, addRecentFile } = useRecentFiles();
 
@@ -252,6 +254,7 @@ export function App() {
           sidebarCollapsed={sidebarCollapsed}
           sourceMode={sourceMode}
           focusMode={focusMode}
+          fullWidth={fullWidth}
           activeTheme={activeTheme}
           themes={themes}
           onNew={fileState.handleNew}
@@ -272,6 +275,7 @@ export function App() {
           onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
           onToggleSource={handleToggleSource}
           onToggleFocusMode={() => setFocusMode((f) => !f)}
+          onToggleFullWidth={toggleFullWidth}
           onThemeSelect={(id) => switchTheme(id as typeof activeTheme)}
         />
         <div className="markd-topbar">
@@ -317,11 +321,13 @@ export function App() {
           lastSaved={fileState.lastSaved}
           sourceMode={sourceMode}
           focusMode={focusMode}
+          fullWidth={fullWidth}
           onThemeChange={handleThemeToggle}
           onExportHtml={handleExportHtml}
           onExportPdf={exportAsPdf}
           onToggleSource={handleToggleSource}
           onToggleFocusMode={() => setFocusMode((f) => !f)}
+          onToggleFullWidth={toggleFullWidth}
         />
       </div>
       <ContextMenu editor={editor} />

@@ -314,16 +314,27 @@ body {
 .markd-editor-scroll {
   flex: 1;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
 }
 
-/* #write — the Typora-compatible editor container */
+/* #write — the Typora-compatible editor container.
+ *
+ * `--editor-max-width` defaults to 860px (the Typora reading column). The
+ * Full Width toggle flips [data-full-width="true"] on <html>, which swaps the
+ * variable to 100% so #write fills the editor area. The max-width transition
+ * gives a smooth resize when the user toggles.
+ */
 #write {
-  max-width: 860px;
+  max-width: var(--editor-max-width, 860px);
   margin: 0 auto;
   padding: 30px 60px 100px;
   min-height: 100%;
   outline: none;
+  transition: max-width 0.25s ease;
+}
+
+[data-full-width="true"] #write {
+  max-width: 100%;
 }
 
 #write > *:first-child {
@@ -747,9 +758,10 @@ body {
 
 .markd-source-textarea {
   flex: 1;
-  max-width: 860px;
+  max-width: var(--editor-max-width, 860px);
   margin: 0 auto;
   padding: 30px 60px 100px;
+  transition: max-width 0.25s ease;
   background: transparent;
   border: none;
   outline: none;

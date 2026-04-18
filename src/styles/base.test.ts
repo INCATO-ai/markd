@@ -25,9 +25,22 @@ describe("base.css layout", () => {
     expect(body).toMatch(/max-width:\s*100%/);
   });
 
-  test(".markd-editor-scroll clips horizontal overflow (tables own their own scroll)", () => {
+  test(".markd-editor-scroll shows a horizontal scrollbar when content exceeds width", () => {
     const body = ruleBody(".markd-editor-scroll");
     expect(body).not.toBeNull();
-    expect(body).toMatch(/overflow-x:\s*hidden/);
+    expect(body).toMatch(/overflow-x:\s*auto/);
+  });
+
+  test("#write max-width is driven by --editor-max-width so Full Width can swap it", () => {
+    const body = ruleBody("#write");
+    expect(body).not.toBeNull();
+    expect(body).toMatch(/max-width:\s*var\(--editor-max-width/);
+    expect(body).toMatch(/transition:\s*max-width/);
+  });
+
+  test("[data-full-width=\"true\"] #write removes the 860px cap", () => {
+    const body = ruleBody('[data-full-width="true"] #write');
+    expect(body).not.toBeNull();
+    expect(body).toMatch(/max-width:\s*100%/);
   });
 });
