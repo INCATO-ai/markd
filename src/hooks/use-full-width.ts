@@ -3,7 +3,10 @@ import { useState, useCallback, useEffect } from "react";
 const STORAGE_KEY = "markd-full-width";
 
 function getInitial(): boolean {
-  return localStorage.getItem(STORAGE_KEY) === "1";
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored === "0") return false;
+  if (stored === "1") return true;
+  return true;
 }
 
 // Full-width mode swaps #write's 860px reading column for 100% of the editor
