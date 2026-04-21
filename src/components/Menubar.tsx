@@ -22,6 +22,7 @@ interface MenubarProps {
   sidebarCollapsed: boolean;
   sourceMode: boolean;
   focusMode: boolean;
+  fullWidth: boolean;
   activeTheme: string;
   themes: readonly { id: string; name: string }[];
   onNew: () => void;
@@ -36,6 +37,7 @@ interface MenubarProps {
   onToggleSidebar: () => void;
   onToggleSource: () => void;
   onToggleFocusMode: () => void;
+  onToggleFullWidth: () => void;
   onThemeSelect: (id: string) => void;
 }
 
@@ -52,6 +54,7 @@ export function Menubar(props: MenubarProps) {
     editor,
     sidebarCollapsed,
     sourceMode,
+    fullWidth,
     activeTheme,
     themes,
     onNew,
@@ -65,6 +68,7 @@ export function Menubar(props: MenubarProps) {
     onReplace,
     onToggleSidebar,
     onToggleSource,
+    onToggleFullWidth,
     onThemeSelect,
   } = props;
 
@@ -141,6 +145,11 @@ export function Menubar(props: MenubarProps) {
           shortcut: "Ctrl+/",
           onSelect: onToggleSource,
           checked: sourceMode,
+        },
+        {
+          label: "Full Width",
+          onSelect: onToggleFullWidth,
+          checked: fullWidth,
         },
         // Focus Mode hidden in v0.1.0 — typewriter-scroll half works but
         // block dimming doesn't render. Re-enable once fixed. Handler and
