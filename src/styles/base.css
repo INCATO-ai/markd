@@ -621,6 +621,11 @@ body {
   transition: opacity 0.2s ease;
 }
 
+.markd-version {
+  opacity: 0.45;
+  font-size: 11px;
+}
+
 /* Status bar active button */
 .markd-status-bar .status-btn-active {
   background: var(--select-text-bg-color) !important;

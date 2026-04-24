@@ -82,6 +82,7 @@ export function StatusBar({
         <button onClick={onThemeChange} style={btnStyle}>
           {theme}
         </button>
+        <span className="markd-version">v{__APP_VERSION__}</span>
       </div>
     </div>
   );

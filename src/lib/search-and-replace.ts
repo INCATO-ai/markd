@@ -1,5 +1,6 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Node as PmNode } from "@tiptap/pm/model";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
 export interface SearchResult {
@@ -16,32 +17,60 @@ export interface SearchState {
 
 const searchPluginKey = new PluginKey("searchAndReplace");
 
+function scrollToMatch(editor: { view: { domAtPos: (pos: number) => { node: Node; offset: number } } }, match: SearchResult) {
+  const dom = editor.view.domAtPos(match.from);
+  const el = dom.node instanceof HTMLElement ? dom.node : dom.node.parentElement;
+  el?.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+
 function findMatches(
-  doc: { textBetween: (from: number, to: number, blockSeparator?: string, leafText?: string) => string; content: { size: number } },
+  doc: PmNode,
   searchTerm: string,
   caseSensitive: boolean,
 ): SearchResult[] {
   if (!searchTerm) return [];
 
-  const results: SearchResult[] = [];
-  const text = doc.textBetween(0, doc.content.size, "\n", "\0");
   const term = caseSensitive ? searchTerm : searchTerm.toLowerCase();
-  const haystack = caseSensitive ? text : text.toLowerCase();
+  // Build flat text with a map from flat index → doc position
+  const chars: string[] = [];
+  const posMap: number[] = [];
+  let prevEnd = -1;
 
-  let pos = 0;
-  while (pos < haystack.length) {
-    const idx = haystack.indexOf(term, pos);
+  doc.descendants((node, pos) => {
+    if (node.isText && node.text) {
+      const t = node.text;
+      if (prevEnd >= 0 && pos > prevEnd) {
+        chars.push("\n");
+        posMap.push(-1);
+      }
+      for (let i = 0; i < t.length; i++) {
+        chars.push(t.charAt(i));
+        posMap.push(pos + i);
+      }
+      prevEnd = pos + t.length;
+    }
+  });
+
+  const haystack = caseSensitive ? chars.join("") : chars.join("").toLowerCase();
+  const results: SearchResult[] = [];
+  let searchPos = 0;
+
+  while (searchPos < haystack.length) {
+    const idx = haystack.indexOf(term, searchPos);
     if (idx === -1) break;
-    // +1 because textBetween starts from position 0 but doc positions start at 1
-    results.push({ from: idx + 1, to: idx + term.length + 1 });
-    pos = idx + 1;
+    const from = posMap[idx]!;
+    const to = posMap[idx + term.length - 1]!;
+    if (from >= 0 && to >= 0) {
+      results.push({ from, to: to + 1 });
+    }
+    searchPos = idx + 1;
   }
 
   return results;
 }
 
 function createDecorations(
-  doc: Parameters<typeof findMatches>[0],
+  doc: PmNode,
   results: SearchResult[],
   currentIndex: number,
 ): DecorationSet {
@@ -58,7 +87,7 @@ function createDecorations(
     );
   });
 
-  return DecorationSet.create(doc as Parameters<typeof DecorationSet.create>[0], decorations);
+  return DecorationSet.create(doc, decorations);
 }
 
 declare module "@tiptap/core" {
@@ -101,8 +130,11 @@ export const SearchAndReplace = Extension.create({
           editor.storage.searchAndReplace.results = results;
           editor.storage.searchAndReplace.currentIndex =
             results.length > 0 ? 0 : -1;
-          // Force plugin state update via a transaction
           editor.view.dispatch(editor.state.tr.setMeta(searchPluginKey, true));
+          const first = results[0];
+          if (first) {
+            scrollToMatch(editor, first);
+          }
           return true;
         },
 
@@ -119,6 +151,10 @@ export const SearchAndReplace = Extension.create({
           editor.storage.searchAndReplace.currentIndex =
             results.length > 0 ? 0 : -1;
           editor.view.dispatch(editor.state.tr.setMeta(searchPluginKey, true));
+          const first = results[0];
+          if (first) {
+            scrollToMatch(editor, first);
+          }
           return true;
         },
 
@@ -130,16 +166,10 @@ export const SearchAndReplace = Extension.create({
           storage.currentIndex =
             (storage.currentIndex + 1) % storage.results.length;
           editor.view.dispatch(editor.state.tr.setMeta(searchPluginKey, true));
-          // Scroll to match
           const match = storage.results[storage.currentIndex];
           if (match) {
             editor.commands.setTextSelection(match.from);
-            const dom = editor.view.domAtPos(match.from);
-            if (dom.node instanceof HTMLElement) {
-              dom.node.scrollIntoView({ block: "center" });
-            } else if (dom.node.parentElement) {
-              dom.node.parentElement.scrollIntoView({ block: "center" });
-            }
+            scrollToMatch(editor, match);
           }
           return true;
         },
@@ -156,12 +186,7 @@ export const SearchAndReplace = Extension.create({
           const match = storage.results[storage.currentIndex];
           if (match) {
             editor.commands.setTextSelection(match.from);
-            const dom = editor.view.domAtPos(match.from);
-            if (dom.node instanceof HTMLElement) {
-              dom.node.scrollIntoView({ block: "center" });
-            } else if (dom.node.parentElement) {
-              dom.node.parentElement.scrollIntoView({ block: "center" });
-            }
+            scrollToMatch(editor, match);
           }
           return true;
         },
