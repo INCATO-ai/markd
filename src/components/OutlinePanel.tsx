@@ -53,14 +53,11 @@ export function OutlinePanel({ editor }: OutlinePanelProps) {
     (pos: number) => {
       if (!editor) return;
 
-      // Find the DOM node at this position and scroll to it
-      editor.chain().focus().setTextSelection(pos).run();
+      const dom = editor.view.nodeDOM(pos);
+      const element =
+        dom instanceof HTMLElement ? dom : (dom as Node)?.parentElement;
 
-      // Scroll the heading into view
-      const domAtPos = editor.view.domAtPos(pos);
-      const element = domAtPos.node instanceof HTMLElement
-        ? domAtPos.node
-        : domAtPos.node.parentElement;
+      editor.chain().focus().setTextSelection(pos + 1).run();
       element?.scrollIntoView({ behavior: "smooth", block: "center" });
     },
     [editor],
