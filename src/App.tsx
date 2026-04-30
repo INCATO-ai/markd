@@ -116,32 +116,43 @@ export function App() {
     };
   }, [editor, fileState.handleOpenByPath, fileTabs.openInTab]);
 
-  // Listen for files opened from a second instance (single-instance plugin)
+  // Stable refs for the single-instance listener — avoids re-registering
+  // the Tauri event listener every time tabs change, which caused a
+  // re-registration loop that spammed duplicate tabs.
+  const fileTabsRef = useRef(fileTabs);
+  fileTabsRef.current = fileTabs;
+  const fileStateRef = useRef(fileState);
+  fileStateRef.current = fileState;
+
   useEffect(() => {
     if (!isTauri() || !editor) return;
     let unlisten: (() => void) | null = null;
+    let cancelled = false;
 
     (async () => {
       const { listen } = await import("@tauri-apps/api/event");
+      if (cancelled) return;
       unlisten = await listen<string>("open-file-in-tab", async (event) => {
+        const ft = fileTabsRef.current;
+        const fs = fileStateRef.current;
         const filePath = event.payload;
-        const existing = fileTabs.tabs.find((t) => t.filePath === filePath);
+        const existing = ft.tabs.find((t) => t.filePath === filePath);
         if (existing) {
-          const target = fileTabs.switchTab(existing.id);
-          if (target) fileState.restoreState(target);
+          const target = ft.switchTab(existing.id);
+          if (target) fs.restoreState(target);
           return;
         }
-        fileTabs.openInTab(
+        ft.openInTab(
           filePath.split(/[/\\]/).pop() ?? "untitled.md",
           filePath,
           "",
         );
-        await fileState.handleOpenByPath(filePath);
+        await fs.handleOpenByPath(filePath);
       });
     })();
 
-    return () => { unlisten?.(); };
-  }, [editor, fileState.handleOpenByPath, fileState.restoreState, fileTabs.tabs, fileTabs.openInTab, fileTabs.switchTab]);
+    return () => { cancelled = true; unlisten?.(); };
+  }, [editor]);
 
   // Toggle source mode
   const handleToggleSource = useCallback(() => {
