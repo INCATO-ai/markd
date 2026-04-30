@@ -404,6 +404,20 @@ export function App() {
           onToggleFocusMode={() => setFocusMode((f) => !f)}
           onToggleFullWidth={toggleFullWidth}
           onThemeSelect={(id) => switchTheme(id as typeof activeTheme)}
+          onNewTab={handleNewTab}
+          onCloseTab={() => handleCloseTab(fileTabs.activeTabId)}
+          onNextTab={() => {
+            if (fileTabs.tabs.length <= 1) return;
+            const idx = fileTabs.tabs.findIndex((t) => t.id === fileTabs.activeTabId);
+            const next = fileTabs.tabs[(idx + 1) % fileTabs.tabs.length];
+            if (next) handleSwitchTab(next.id);
+          }}
+          onPrevTab={() => {
+            if (fileTabs.tabs.length <= 1) return;
+            const idx = fileTabs.tabs.findIndex((t) => t.id === fileTabs.activeTabId);
+            const prev = fileTabs.tabs[(idx - 1 + fileTabs.tabs.length) % fileTabs.tabs.length];
+            if (prev) handleSwitchTab(prev.id);
+          }}
         />
         <div className="markd-topbar">
           {sidebarCollapsed && (

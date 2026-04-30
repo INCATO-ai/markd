@@ -39,6 +39,10 @@ interface MenubarProps {
   onToggleFocusMode: () => void;
   onToggleFullWidth: () => void;
   onThemeSelect: (id: string) => void;
+  onNewTab: () => void;
+  onCloseTab: () => void;
+  onNextTab: () => void;
+  onPrevTab: () => void;
 }
 
 function runExec(cmd: "cut" | "copy" | "paste"): void {
@@ -70,6 +74,10 @@ export function Menubar(props: MenubarProps) {
     onToggleSource,
     onToggleFullWidth,
     onThemeSelect,
+    onNewTab,
+    onCloseTab,
+    onNextTab,
+    onPrevTab,
   } = props;
 
   const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -85,6 +93,11 @@ export function Menubar(props: MenubarProps) {
         "separator",
         { label: "Save", shortcut: "Ctrl+S", onSelect: onSave },
         { label: "Save As…", shortcut: "Ctrl+Shift+S", onSelect: onSaveAs },
+        "separator",
+        { label: "New Tab", shortcut: "Ctrl+T", onSelect: onNewTab },
+        { label: "Close Tab", shortcut: "Ctrl+W", onSelect: onCloseTab },
+        { label: "Next Tab", shortcut: "Ctrl+Tab", onSelect: onNextTab },
+        { label: "Previous Tab", shortcut: "Ctrl+Shift+Tab", onSelect: onPrevTab },
         "separator",
         { label: "Export as HTML…", onSelect: onExportHtml },
         { label: "Export as PDF…", onSelect: onExportPdf },
