@@ -29,7 +29,7 @@ export function Sidebar({
   onToggle,
   onRecentFileSelect,
 }: SidebarProps) {
-  const [activeTab, setActiveTab] = useState<SidebarTab>("files");
+  const [activeTab, setActiveTab] = useState<SidebarTab>("outline");
 
   return (
     <aside className={`markd-sidebar ${collapsed ? "collapsed" : ""}`}>

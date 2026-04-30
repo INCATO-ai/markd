@@ -14,6 +14,8 @@ import { SourceEditor } from "@/components/SourceEditor";
 import { ContextMenu } from "@/components/ContextMenu";
 import { useRecentFiles } from "@/hooks/use-recent-files";
 import { useFullWidth } from "@/hooks/use-full-width";
+import { useFileTabs } from "@/hooks/use-file-tabs";
+import { TabBar } from "@/components/TabBar";
 import { exportAsHtml, exportAsPdf } from "@/lib/file-system";
 
 function isTauri(): boolean {
@@ -33,6 +35,7 @@ export function App() {
   const { fullWidth, toggleFullWidth } = useFullWidth();
   const fileState = useFileState();
   const { recentFiles, addRecentFile } = useRecentFiles();
+  const fileTabs = useFileTabs();
 
   // Directory of the currently-open file. Read by ResolvedImage at renderHTML
   // time, so it must be updated BEFORE setContent runs — do it synchronously
@@ -68,13 +71,13 @@ export function App() {
       return editor.storage.markdown.getMarkdown();
     });
     fileState.registerSetContent((md: string, fileDir: string) => {
-      // Update fileDirRef BEFORE setContent so ResolvedImage.renderHTML sees
-      // the correct dir when it resolves relative paths.
       fileDirRef.current = fileDir;
-      // emitUpdate=false: loading a file must not fire onUpdate → markDirty.
       editor.commands.setContent(md, false);
     });
-  }, [editor, fileState.registerGetMarkdown, fileState.registerSetContent]);
+    fileTabs.registerGetMarkdown(() => {
+      return editor.storage.markdown.getMarkdown();
+    });
+  }, [editor, fileState.registerGetMarkdown, fileState.registerSetContent, fileTabs.registerGetMarkdown]);
 
   // Track recent files when files are opened/saved
   useEffect(() => {
@@ -219,15 +222,71 @@ export function App() {
     await exportAsHtml(editor.getHTML(), fileState.fileName);
   }, [editor, fileState.fileName]);
 
+  // Sync tab state when fileState changes (after open/save/new operations)
+  useEffect(() => {
+    fileTabs.markTabSaved(fileTabs.activeTabId, {
+      filePath: fileState.filePath,
+      fileName: fileState.fileName,
+      savedContent: fileState.savedContent,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileState.filePath, fileState.fileName, fileState.savedContent]);
+
+  useEffect(() => {
+    if (fileState.isDirty) fileTabs.markTabDirty();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileState.isDirty]);
+
+  const handleSwitchTab = useCallback(
+    (tabId: string) => {
+      const target = fileTabs.switchTab(tabId);
+      if (target) fileState.restoreState(target);
+    },
+    [fileTabs.switchTab, fileState.restoreState],
+  );
+
+  const handleCloseTab = useCallback(
+    (tabId: string) => {
+      const { switchTo } = fileTabs.closeTab(tabId);
+      if (switchTo) fileState.restoreState(switchTo);
+    },
+    [fileTabs.closeTab, fileState.restoreState],
+  );
+
+  const handleNewTab = useCallback(() => {
+    fileTabs.newTab();
+    fileState.handleNew();
+  }, [fileTabs.newTab, fileState.handleNew]);
+
+  const handleFileSelectWithTabs = useCallback(
+    async (entry: { kind: string; name: string; path: string }) => {
+      if (entry.kind !== "file") return;
+      const existing = fileTabs.tabs.find((t) => t.filePath === entry.path);
+      if (existing) {
+        handleSwitchTab(existing.id);
+        return;
+      }
+      fileTabs.openInTab(entry.name, entry.path, "");
+      await fileState.handleOpenByPath(entry.path);
+    },
+    [fileTabs.tabs, fileTabs.openInTab, handleSwitchTab, fileState.handleOpenByPath],
+  );
+
   const handleRecentFileSelect = useCallback(
     async (file: { name: string; path: string }) => {
       try {
+        const existing = fileTabs.tabs.find((t) => t.filePath === file.path);
+        if (existing) {
+          handleSwitchTab(existing.id);
+          return;
+        }
+        fileTabs.openInTab(file.name, file.path, "");
         await fileState.handleOpenByPath(file.path);
       } catch (err) {
         console.error("Failed to open recent file:", err);
       }
     },
-    [fileState.handleOpenByPath],
+    [fileState.handleOpenByPath, fileTabs.tabs, fileTabs.openInTab, handleSwitchTab],
   );
 
   const handleCloseFindReplace = useCallback(() => {
@@ -243,12 +302,19 @@ export function App() {
         collapsed={sidebarCollapsed}
         editor={editor}
         recentFiles={recentFiles}
-        onFileSelect={fileState.handleFileSelect}
+        onFileSelect={handleFileSelectWithTabs}
         onOpenFolder={fileState.handleOpenFolder}
         onToggle={() => setSidebarCollapsed((c) => !c)}
         onRecentFileSelect={handleRecentFileSelect}
       />
       <div className="markd-editor-area">
+        <TabBar
+          tabs={fileTabs.tabs}
+          activeTabId={fileTabs.activeTabId}
+          onSwitchTab={handleSwitchTab}
+          onCloseTab={handleCloseTab}
+          onNewTab={handleNewTab}
+        />
         <Menubar
           editor={editor}
           sidebarCollapsed={sidebarCollapsed}

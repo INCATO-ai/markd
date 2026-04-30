@@ -155,6 +155,29 @@ export function useFileState() {
     }));
   }, []);
 
+  // Restore state from a tab snapshot — sets editor content + file state without FS reads.
+  const restoreState = useCallback(
+    (snapshot: {
+      fileName: string;
+      filePath: string | null;
+      content: string;
+      isDirty: boolean;
+      savedContent: string;
+      lastSaved: number | null;
+    }) => {
+      setContentRef.current?.(snapshot.content, snapshot.filePath ? dirname(snapshot.filePath) : "");
+      setState((prev) => ({
+        ...prev,
+        fileName: snapshot.fileName,
+        filePath: snapshot.filePath,
+        isDirty: snapshot.isDirty,
+        savedContent: snapshot.savedContent,
+        lastSaved: snapshot.lastSaved,
+      }));
+    },
+    [],
+  );
+
   // Auto-save: debounce 30s after last edit, only if file has a path
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -198,5 +221,6 @@ export function useFileState() {
     handleOpenByPath,
     registerGetMarkdown,
     registerSetContent,
+    restoreState,
   };
 }

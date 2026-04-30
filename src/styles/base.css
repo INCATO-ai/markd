@@ -144,6 +144,110 @@ body {
   min-width: 0;
 }
 
+/* Tab bar */
+.markd-tab-bar {
+  display: flex;
+  align-items: center;
+  background: var(--bg-color);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  height: 35px;
+  padding: 0 4px;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.markd-tab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.markd-tab-list {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.markd-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  max-width: 160px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.markd-tab:hover {
+  background: var(--hover-bg);
+}
+
+.markd-tab.active {
+  color: var(--text-color);
+  background: var(--hover-bg);
+}
+
+.markd-tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.markd-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  opacity: 0;
+  flex-shrink: 0;
+}
+
+.markd-tab:hover .markd-tab-close {
+  opacity: 1;
+}
+
+.markd-tab-close:hover {
+  background: var(--border-color);
+  color: var(--text-color);
+}
+
+.markd-tab-new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.markd-tab-new:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
 /* Topbar (sidebar toggle + toolbar) */
 .markd-topbar {
   display: flex;
