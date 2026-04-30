@@ -97,8 +97,11 @@ pub fn run() {
                         .build(),
                 )?;
             }
-            // Direct-open is handled on the frontend by invoking get_opened_file
-            // once the editor is ready. No timed emit — that was race-prone.
+            // Window starts hidden (tauri.conf.json visible:false) so the
+            // window-state plugin can restore size before the user sees it.
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+            }
             Ok(())
         })
         .run(tauri::generate_context!())
