@@ -249,6 +249,18 @@ export function App() {
     fileState.handleNew();
   }, [fileTabs.newTab, fileState.handleNew]);
 
+  const cycleTab = useCallback(
+    (direction: 1 | -1) => {
+      const t = fileTabs.tabs;
+      if (t.length <= 1) return;
+      const idx = t.findIndex((tab) => tab.id === fileTabs.activeTabId);
+      const nextIdx = (idx + direction + t.length) % t.length;
+      const next = t[nextIdx];
+      if (next) handleSwitchTab(next.id);
+    },
+    [fileTabs.tabs, fileTabs.activeTabId, handleSwitchTab],
+  );
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -294,14 +306,7 @@ export function App() {
             break;
           case "Tab":
             e.preventDefault();
-            if (fileTabs.tabs.length > 1) {
-              const idx = fileTabs.tabs.findIndex((t) => t.id === fileTabs.activeTabId);
-              const nextIdx = e.shiftKey
-                ? (idx - 1 + fileTabs.tabs.length) % fileTabs.tabs.length
-                : (idx + 1) % fileTabs.tabs.length;
-              const next = fileTabs.tabs[nextIdx];
-              if (next) handleSwitchTab(next.id);
-            }
+            cycleTab(e.shiftKey ? -1 : 1);
             break;
           case "t":
             if (e.shiftKey) break;
@@ -320,10 +325,9 @@ export function App() {
     fileState.handleNew,
     handleToggleSource,
     handleCloseTab,
-    handleSwitchTab,
     handleNewTab,
+    cycleTab,
     fileTabs.activeTabId,
-    fileTabs.tabs,
   ]);
 
   const handleFileSelectWithTabs = useCallback(
@@ -334,8 +338,12 @@ export function App() {
         handleSwitchTab(existing.id);
         return;
       }
-      fileTabs.openInTab(entry.name, entry.path, "");
-      await fileState.handleOpenByPath(entry.path);
+      const { tab, isNew } = fileTabs.openInTab(entry.name, entry.path, "");
+      try {
+        await fileState.handleOpenByPath(entry.path);
+      } catch {
+        if (isNew) fileTabs.closeTab(tab.id);
+      }
     },
     [fileTabs.tabs, fileTabs.openInTab, handleSwitchTab, fileState.handleOpenByPath],
   );
@@ -413,18 +421,8 @@ export function App() {
           onThemeSelect={(id) => switchTheme(id as typeof activeTheme)}
           onNewTab={handleNewTab}
           onCloseTab={() => handleCloseTab(fileTabs.activeTabId)}
-          onNextTab={() => {
-            if (fileTabs.tabs.length <= 1) return;
-            const idx = fileTabs.tabs.findIndex((t) => t.id === fileTabs.activeTabId);
-            const next = fileTabs.tabs[(idx + 1) % fileTabs.tabs.length];
-            if (next) handleSwitchTab(next.id);
-          }}
-          onPrevTab={() => {
-            if (fileTabs.tabs.length <= 1) return;
-            const idx = fileTabs.tabs.findIndex((t) => t.id === fileTabs.activeTabId);
-            const prev = fileTabs.tabs[(idx - 1 + fileTabs.tabs.length) % fileTabs.tabs.length];
-            if (prev) handleSwitchTab(prev.id);
-          }}
+          onNextTab={() => cycleTab(1)}
+          onPrevTab={() => cycleTab(-1)}
         />
         <div className="markd-topbar">
           {sidebarCollapsed && (

@@ -69,9 +69,16 @@ fn read_dir(path: String) -> Result<Vec<DirEntry>, String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
-            // Second instance launched with a file arg — emit to the running window.
             if let Some(file_path) = args.iter().skip(1).find(|a| !a.starts_with('-')) {
-                let _ = app.emit("open-file-in-tab", file_path.clone());
+                let path = std::path::Path::new(file_path);
+                let valid_ext = path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .map(|e| matches!(e, "md" | "markdown" | "mdx" | "txt"))
+                    .unwrap_or(false);
+                if valid_ext && path.is_file() {
+                    let _ = app.emit("open-file-in-tab", file_path.clone());
+                }
             }
             // Focus the existing window.
             if let Some(w) = app.get_webview_window("main") {

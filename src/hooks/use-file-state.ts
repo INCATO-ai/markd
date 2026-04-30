@@ -163,7 +163,7 @@ export function useFileState() {
       content: string;
       isDirty: boolean;
       savedContent: string;
-      lastSaved: number | null;
+      lastSaved?: number | null;
     }) => {
       setContentRef.current?.(snapshot.content, snapshot.filePath ? dirname(snapshot.filePath) : "");
       setState((prev) => ({
@@ -172,7 +172,7 @@ export function useFileState() {
         filePath: snapshot.filePath,
         isDirty: snapshot.isDirty,
         savedContent: snapshot.savedContent,
-        lastSaved: snapshot.lastSaved,
+        lastSaved: snapshot.lastSaved ?? null,
       }));
     },
     [],

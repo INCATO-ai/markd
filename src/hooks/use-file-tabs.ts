@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 
 export interface FileTab {
   id: string;
@@ -7,20 +7,16 @@ export interface FileTab {
   content: string;
   isDirty: boolean;
   savedContent: string;
-  lastSaved: number | null;
 }
-
-let nextTabId = 1;
 
 function createTab(overrides?: Partial<FileTab>): FileTab {
   return {
-    id: String(nextTabId++),
+    id: crypto.randomUUID(),
     fileName: "Untitled",
     filePath: null,
     content: "",
     isDirty: false,
     savedContent: "",
-    lastSaved: null,
     ...overrides,
   };
 }
@@ -29,33 +25,42 @@ export function useFileTabs() {
   const [tabs, setTabs] = useState<FileTab[]>(() => [createTab()]);
   const [activeTabId, setActiveTabId] = useState(() => tabs[0]!.id);
   const getMarkdownRef = useRef<(() => string) | null>(null);
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+  const activeTabIdRef = useRef(activeTabId);
+  activeTabIdRef.current = activeTabId;
 
   const registerGetMarkdown = useCallback((fn: () => string) => {
     getMarkdownRef.current = fn;
   }, []);
 
-  const activeTab: FileTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0]!;
+  const activeTab: FileTab = useMemo(
+    () => tabs.find((t) => t.id === activeTabId) ?? tabs[0]!,
+    [tabs, activeTabId],
+  );
 
   const snapshotActiveTab = useCallback(() => {
     const md = getMarkdownRef.current?.() ?? "";
+    const id = activeTabIdRef.current;
     setTabs((prev) =>
-      prev.map((t) => (t.id === activeTabId ? { ...t, content: md } : t)),
+      prev.map((t) => (t.id === id ? { ...t, content: md } : t)),
     );
     return md;
-  }, [activeTabId]);
+  }, []);
 
   const switchTab = useCallback(
     (tabId: string) => {
-      if (tabId === activeTabId) return null;
+      if (tabId === activeTabIdRef.current) return null;
       const md = getMarkdownRef.current?.() ?? "";
+      const prevId = activeTabIdRef.current;
       setTabs((prev) =>
-        prev.map((t) => (t.id === activeTabId ? { ...t, content: md } : t)),
+        prev.map((t) => (t.id === prevId ? { ...t, content: md } : t)),
       );
       setActiveTabId(tabId);
-      const target = tabs.find((t) => t.id === tabId);
+      const target = tabsRef.current.find((t) => t.id === tabId);
       return target ?? null;
     },
-    [activeTabId, tabs],
+    [],
   );
 
   const openInTab = useCallback(
@@ -65,21 +70,25 @@ export function useFileTabs() {
       content: string,
     ): { tab: FileTab; isNew: boolean } => {
       snapshotActiveTab();
+      const currentTabs = tabsRef.current;
+      const currentId = activeTabIdRef.current;
       const existing = filePath
-        ? tabs.find((t) => t.filePath === filePath)
+        ? currentTabs.find((t) => t.filePath === filePath)
         : null;
       if (existing) {
         setActiveTabId(existing.id);
         return { tab: existing, isNew: false };
       }
+      const currentTab = currentTabs.find((t) => t.id === currentId);
       const isUntitledEmpty =
-        activeTab.fileName === "Untitled" &&
-        !activeTab.filePath &&
-        !activeTab.isDirty &&
-        activeTab.content === "";
+        currentTab &&
+        currentTab.fileName === "Untitled" &&
+        !currentTab.filePath &&
+        !currentTab.isDirty &&
+        currentTab.content === "";
       if (isUntitledEmpty) {
         const updated: FileTab = {
-          ...activeTab,
+          ...currentTab,
           fileName,
           filePath,
           content,
@@ -87,7 +96,7 @@ export function useFileTabs() {
           savedContent: content,
         };
         setTabs((prev) =>
-          prev.map((t) => (t.id === activeTab.id ? updated : t)),
+          prev.map((t) => (t.id === currentTab.id ? updated : t)),
         );
         return { tab: updated, isNew: false };
       }
@@ -101,7 +110,7 @@ export function useFileTabs() {
       setActiveTabId(tab.id);
       return { tab, isNew: true };
     },
-    [tabs, activeTab, snapshotActiveTab],
+    [snapshotActiveTab],
   );
 
   const newTab = useCallback((): FileTab => {
@@ -114,15 +123,16 @@ export function useFileTabs() {
 
   const closeTab = useCallback(
     (tabId: string): { switchTo: FileTab | null } => {
-      if (tabs.length <= 1) {
+      const currentTabs = tabsRef.current;
+      if (currentTabs.length <= 1) {
         const fresh = createTab();
         setTabs([fresh]);
         setActiveTabId(fresh.id);
         return { switchTo: fresh };
       }
-      const idx = tabs.findIndex((t) => t.id === tabId);
-      const remaining = tabs.filter((t) => t.id !== tabId);
-      if (tabId === activeTabId) {
+      const idx = currentTabs.findIndex((t) => t.id === tabId);
+      const remaining = currentTabs.filter((t) => t.id !== tabId);
+      if (tabId === activeTabIdRef.current) {
         const nextIdx = Math.min(idx, remaining.length - 1);
         const next = remaining[nextIdx]!;
         setActiveTabId(next.id);
@@ -132,17 +142,17 @@ export function useFileTabs() {
       setTabs(remaining);
       return { switchTo: null };
     },
-    [tabs, activeTabId],
+    [],
   );
 
   const markTabDirty = useCallback(
     (tabId?: string) => {
-      const id = tabId ?? activeTabId;
+      const id = tabId ?? activeTabIdRef.current;
       setTabs((prev) =>
         prev.map((t) => (t.id === id ? { ...t, isDirty: true } : t)),
       );
     },
-    [activeTabId],
+    [],
   );
 
   const markTabSaved = useCallback(
@@ -161,7 +171,6 @@ export function useFileTabs() {
                 ...t,
                 isDirty: false,
                 savedContent: updates.savedContent,
-                lastSaved: Date.now(),
                 ...(updates.filePath !== undefined
                   ? { filePath: updates.filePath }
                   : {}),

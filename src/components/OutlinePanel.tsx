@@ -43,9 +43,12 @@ export function OutlinePanel({ editor }: OutlinePanelProps) {
     const update = () => setHeadings(extractHeadings(editor));
     update();
 
-    editor.on("transaction", update);
+    const onTransaction = ({ transaction }: { transaction: { docChanged: boolean } }) => {
+      if (transaction.docChanged) update();
+    };
+    editor.on("transaction", onTransaction);
     return () => {
-      editor.off("transaction", update);
+      editor.off("transaction", onTransaction);
     };
   }, [editor]);
 
