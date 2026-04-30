@@ -43,9 +43,9 @@ export function OutlinePanel({ editor }: OutlinePanelProps) {
     const update = () => setHeadings(extractHeadings(editor));
     update();
 
-    editor.on("update", update);
+    editor.on("transaction", update);
     return () => {
-      editor.off("update", update);
+      editor.off("transaction", update);
     };
   }, [editor]);
 
