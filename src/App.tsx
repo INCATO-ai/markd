@@ -28,6 +28,7 @@ export function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [findReplaceOpen, setFindReplaceOpen] = useState(false);
   const [findReplaceShowReplace, setFindReplaceShowReplace] = useState(false);
+  const lastSearchTermRef = useRef("");
   const [sourceMode, setSourceMode] = useState(false);
   const [sourceMarkdown, setSourceMarkdown] = useState("");
   const [focusMode, setFocusMode] = useState(false);
@@ -265,6 +266,33 @@ export function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey) {
+        if (e.key === "F3" && editor) {
+          e.preventDefault();
+          const { from, to } = editor.state.selection;
+          let term = "";
+          if (from !== to) {
+            term = editor.state.doc.textBetween(from, to);
+          } else {
+            const $pos = editor.state.doc.resolve(from);
+            const text = $pos.parent.textContent;
+            const offset = $pos.parentOffset;
+            let start = offset;
+            let end = offset;
+            while (start > 0 && /\w/.test(text[start - 1]!)) start--;
+            while (end < text.length && /\w/.test(text[end]!)) end++;
+            if (start !== end) {
+              term = text.slice(start, end);
+            }
+          }
+          if (term) {
+            editor.commands.setSearchTerm(term);
+            setFindReplaceOpen(true);
+            setFindReplaceShowReplace(false);
+            window.dispatchEvent(new Event("markd:find-focus"));
+          }
+          return;
+        }
+
         switch (e.key) {
           case "s":
             e.preventDefault();
@@ -290,6 +318,7 @@ export function App() {
             e.preventDefault();
             setFindReplaceShowReplace(false);
             setFindReplaceOpen(true);
+            window.dispatchEvent(new Event("markd:find-focus"));
             break;
           case "h":
             e.preventDefault();
@@ -315,6 +344,20 @@ export function App() {
             break;
         }
       }
+
+      if (e.key === "F3") {
+        e.preventDefault();
+        if (!editor) return;
+        const storage = editor.storage.searchAndReplace;
+        if (!storage.searchTerm && lastSearchTermRef.current) {
+          editor.commands.setSearchTerm(lastSearchTermRef.current);
+        }
+        if (e.shiftKey) {
+          editor.commands.findPrevious();
+        } else {
+          editor.commands.findNext();
+        }
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -329,6 +372,14 @@ export function App() {
     cycleTab,
     fileTabs.activeTabId,
   ]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      lastSearchTermRef.current = (e as CustomEvent).detail;
+    };
+    window.addEventListener("markd:search-term", handler);
+    return () => window.removeEventListener("markd:search-term", handler);
+  }, []);
 
   const handleFileSelectWithTabs = useCallback(
     async (entry: { kind: string; name: string; path: string }) => {
@@ -367,7 +418,7 @@ export function App() {
 
   const handleCloseFindReplace = useCallback(() => {
     setFindReplaceOpen(false);
-    editor?.commands.clearSearch();
+    editor?.commands.clearDecorations();
   }, [editor]);
 
   return (

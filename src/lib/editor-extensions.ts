@@ -9,6 +9,7 @@ import TaskItem from "@tiptap/extension-task-item";
 import Placeholder from "@tiptap/extension-placeholder";
 import { common, createLowlight } from "lowlight";
 import { SearchAndReplace } from "@/lib/search-and-replace";
+import { SectionCommands } from "@/lib/section-commands";
 import { ImagePasteDrop } from "@/lib/image-paste-drop";
 import { ResolvedImage } from "@/lib/resolved-image";
 
@@ -47,5 +48,6 @@ export function getExtensions(opts: ExtensionOptions) {
     }),
     SearchAndReplace,
     ImagePasteDrop,
+    SectionCommands,
   ];
 }

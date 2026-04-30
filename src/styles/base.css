@@ -677,6 +677,22 @@ body {
   color: var(--item-hover-text-color);
 }
 
+.markd-outline-item.active {
+  background: var(--active-file-bg-color);
+  color: var(--active-file-text-color);
+  border-left: 2px solid var(--primary-color);
+  transition: background 0.15s ease;
+}
+
+.markd-outline-item.dragging {
+  opacity: 0.6;
+}
+
+.markd-outline-item.drag-over {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+}
+
 .markd-outline-level {
   flex-shrink: 0;
   font-size: 10px;
@@ -793,7 +809,7 @@ body {
   flex-direction: column;
   gap: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  min-width: 340px;
+  min-width: 420px;
 }
 
 .markd-find-row {
@@ -816,6 +832,14 @@ body {
 
 .markd-find-input:focus {
   border-color: var(--primary-color);
+}
+
+.markd-find-input-error {
+  border-color: #e53e3e;
+}
+
+.markd-find-input-error:focus {
+  border-color: #e53e3e;
 }
 
 .markd-find-count {

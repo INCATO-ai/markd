@@ -1,4 +1,4 @@
-import { Extension } from "@tiptap/core";
+import { Extension, type Editor } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Node as PmNode } from "@tiptap/pm/model";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
@@ -13,6 +13,20 @@ export interface SearchState {
   currentIndex: number;
   searchTerm: string;
   caseSensitive: boolean;
+  useRegex: boolean;
+  wholeWord: boolean;
+  regexError: string | null;
+}
+
+export interface SearchOptions {
+  searchTerm: string;
+  caseSensitive: boolean;
+  useRegex: boolean;
+  wholeWord: boolean;
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 const searchPluginKey = new PluginKey("searchAndReplace");
@@ -23,15 +37,12 @@ function scrollToMatch(editor: { view: { domAtPos: (pos: number) => { node: Node
   el?.scrollIntoView({ block: "center", behavior: "smooth" });
 }
 
-function findMatches(
+export function findMatches(
   doc: PmNode,
-  searchTerm: string,
-  caseSensitive: boolean,
-): SearchResult[] {
-  if (!searchTerm) return [];
+  opts: SearchOptions,
+): { results: SearchResult[]; error: string | null } {
+  if (!opts.searchTerm) return { results: [], error: null };
 
-  const term = caseSensitive ? searchTerm : searchTerm.toLowerCase();
-  // Build flat text with a map from flat index → doc position
   const chars: string[] = [];
   const posMap: number[] = [];
   let prevEnd = -1;
@@ -51,22 +62,39 @@ function findMatches(
     }
   });
 
-  const haystack = caseSensitive ? chars.join("") : chars.join("").toLowerCase();
+  const haystack = chars.join("");
   const results: SearchResult[] = [];
-  let searchPos = 0;
 
-  while (searchPos < haystack.length) {
-    const idx = haystack.indexOf(term, searchPos);
-    if (idx === -1) break;
+  let regex: RegExp;
+  try {
+    const flags = opts.caseSensitive ? "g" : "gi";
+    if (opts.useRegex) {
+      regex = new RegExp(opts.searchTerm, flags);
+    } else if (opts.wholeWord) {
+      regex = new RegExp(`\\b${escapeRegex(opts.searchTerm)}\\b`, flags);
+    } else {
+      regex = new RegExp(escapeRegex(opts.searchTerm), flags);
+    }
+  } catch (e) {
+    return { results: [], error: e instanceof Error ? e.message : "Invalid regex" };
+  }
+
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(haystack)) !== null) {
+    const idx = match.index;
+    const len = match[0].length;
+    if (len === 0) {
+      regex.lastIndex++;
+      continue;
+    }
     const from = posMap[idx]!;
-    const to = posMap[idx + term.length - 1]!;
+    const to = posMap[idx + len - 1]!;
     if (from >= 0 && to >= 0) {
       results.push({ from, to: to + 1 });
     }
-    searchPos = idx + 1;
   }
 
-  return results;
+  return { results, error: null };
 }
 
 function createDecorations(
@@ -95,11 +123,16 @@ declare module "@tiptap/core" {
     searchAndReplace: {
       setSearchTerm: (term: string) => ReturnType;
       setCaseSensitive: (caseSensitive: boolean) => ReturnType;
+      setUseRegex: (useRegex: boolean) => ReturnType;
+      setWholeWord: (wholeWord: boolean) => ReturnType;
       nextMatch: () => ReturnType;
       previousMatch: () => ReturnType;
       replaceCurrentMatch: (replacement: string) => ReturnType;
       replaceAllMatches: (replacement: string) => ReturnType;
+      clearDecorations: () => ReturnType;
       clearSearch: () => ReturnType;
+      findNext: () => ReturnType;
+      findPrevious: () => ReturnType;
     };
   }
 }
@@ -113,28 +146,38 @@ export const SearchAndReplace = Extension.create({
       currentIndex: 0,
       searchTerm: "",
       caseSensitive: false,
+      useRegex: false,
+      wholeWord: false,
+      regexError: null,
     } satisfies SearchState;
   },
 
   addCommands() {
+    const getOpts = (storage: SearchState): SearchOptions => ({
+      searchTerm: storage.searchTerm,
+      caseSensitive: storage.caseSensitive,
+      useRegex: storage.useRegex,
+      wholeWord: storage.wholeWord,
+    });
+
+    const runSearch = (editor: Editor, storage: SearchState) => {
+      const { results, error } = findMatches(editor.state.doc, getOpts(storage));
+      storage.results = results;
+      storage.regexError = error;
+      storage.currentIndex = results.length > 0 ? 0 : -1;
+      editor.view.dispatch(editor.state.tr.setMeta(searchPluginKey, true));
+      const first = results[0];
+      if (first) {
+        scrollToMatch(editor, first);
+      }
+    };
+
     return {
       setSearchTerm:
         (term: string) =>
         ({ editor }) => {
           editor.storage.searchAndReplace.searchTerm = term;
-          const results = findMatches(
-            editor.state.doc,
-            term,
-            editor.storage.searchAndReplace.caseSensitive,
-          );
-          editor.storage.searchAndReplace.results = results;
-          editor.storage.searchAndReplace.currentIndex =
-            results.length > 0 ? 0 : -1;
-          editor.view.dispatch(editor.state.tr.setMeta(searchPluginKey, true));
-          const first = results[0];
-          if (first) {
-            scrollToMatch(editor, first);
-          }
+          runSearch(editor, editor.storage.searchAndReplace as SearchState);
           return true;
         },
 
@@ -142,19 +185,23 @@ export const SearchAndReplace = Extension.create({
         (caseSensitive: boolean) =>
         ({ editor }) => {
           editor.storage.searchAndReplace.caseSensitive = caseSensitive;
-          const results = findMatches(
-            editor.state.doc,
-            editor.storage.searchAndReplace.searchTerm,
-            caseSensitive,
-          );
-          editor.storage.searchAndReplace.results = results;
-          editor.storage.searchAndReplace.currentIndex =
-            results.length > 0 ? 0 : -1;
-          editor.view.dispatch(editor.state.tr.setMeta(searchPluginKey, true));
-          const first = results[0];
-          if (first) {
-            scrollToMatch(editor, first);
-          }
+          runSearch(editor, editor.storage.searchAndReplace as SearchState);
+          return true;
+        },
+
+      setUseRegex:
+        (useRegex: boolean) =>
+        ({ editor }: { editor: Editor }) => {
+          editor.storage.searchAndReplace.useRegex = useRegex;
+          runSearch(editor, editor.storage.searchAndReplace as SearchState);
+          return true;
+        },
+
+      setWholeWord:
+        (wholeWord: boolean) =>
+        ({ editor }: { editor: Editor }) => {
+          editor.storage.searchAndReplace.wholeWord = wholeWord;
+          runSearch(editor, editor.storage.searchAndReplace as SearchState);
           return true;
         },
 
@@ -206,11 +253,9 @@ export const SearchAndReplace = Extension.create({
             .insertContentAt({ from: match.from, to: match.to }, replacement)
             .run();
 
-          // Re-search after replacement
-          const newResults = findMatches(
+          const { results: newResults } = findMatches(
             editor.state.doc,
-            storage.searchTerm,
-            storage.caseSensitive,
+            getOpts(storage),
           );
           storage.results = newResults;
           storage.currentIndex =
@@ -227,7 +272,6 @@ export const SearchAndReplace = Extension.create({
           const storage = editor.storage.searchAndReplace as SearchState;
           if (storage.results.length === 0) return false;
 
-          // Replace from end to start so positions stay valid
           const sorted = [...storage.results].sort(
             (a, b) => b.from - a.from,
           );
@@ -237,7 +281,16 @@ export const SearchAndReplace = Extension.create({
           }
           editor.view.dispatch(tr);
 
-          // Clear results
+          storage.results = [];
+          storage.currentIndex = -1;
+          editor.view.dispatch(editor.state.tr.setMeta(searchPluginKey, true));
+          return true;
+        },
+
+      clearDecorations:
+        () =>
+        ({ editor }: { editor: Editor }) => {
+          const storage = editor.storage.searchAndReplace as SearchState;
           storage.results = [];
           storage.currentIndex = -1;
           editor.view.dispatch(editor.state.tr.setMeta(searchPluginKey, true));
@@ -251,7 +304,47 @@ export const SearchAndReplace = Extension.create({
           storage.searchTerm = "";
           storage.results = [];
           storage.currentIndex = -1;
+          storage.regexError = null;
           editor.view.dispatch(editor.state.tr.setMeta(searchPluginKey, true));
+          return true;
+        },
+
+      findNext:
+        () =>
+        ({ editor }: { editor: Editor }) => {
+          const storage = editor.storage.searchAndReplace as SearchState;
+          if (storage.results.length === 0 && storage.searchTerm) {
+            runSearch(editor, storage);
+          }
+          if (storage.results.length === 0) return false;
+          storage.currentIndex =
+            (storage.currentIndex + 1) % storage.results.length;
+          editor.view.dispatch(editor.state.tr.setMeta(searchPluginKey, true));
+          const match = storage.results[storage.currentIndex];
+          if (match) {
+            editor.commands.setTextSelection(match.from);
+            scrollToMatch(editor, match);
+          }
+          return true;
+        },
+
+      findPrevious:
+        () =>
+        ({ editor }: { editor: Editor }) => {
+          const storage = editor.storage.searchAndReplace as SearchState;
+          if (storage.results.length === 0 && storage.searchTerm) {
+            runSearch(editor, storage);
+          }
+          if (storage.results.length === 0) return false;
+          storage.currentIndex =
+            (storage.currentIndex - 1 + storage.results.length) %
+            storage.results.length;
+          editor.view.dispatch(editor.state.tr.setMeta(searchPluginKey, true));
+          const match = storage.results[storage.currentIndex];
+          if (match) {
+            editor.commands.setTextSelection(match.from);
+            scrollToMatch(editor, match);
+          }
           return true;
         },
     };
@@ -280,11 +373,12 @@ export const SearchAndReplace = Extension.create({
             if (tr.docChanged) {
               const storage = extensionThis.storage as SearchState;
               if (storage.searchTerm) {
-                const results = findMatches(
-                  tr.doc,
-                  storage.searchTerm,
-                  storage.caseSensitive,
-                );
+                const { results } = findMatches(tr.doc, {
+                  searchTerm: storage.searchTerm,
+                  caseSensitive: storage.caseSensitive,
+                  useRegex: storage.useRegex,
+                  wholeWord: storage.wholeWord,
+                });
                 storage.results = results;
                 if (
                   storage.currentIndex >= results.length
