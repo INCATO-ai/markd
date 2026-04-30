@@ -86,10 +86,19 @@ export function App() {
     }
   }, [fileState.filePath, fileState.fileName, addRecentFile]);
 
-  // Load file passed as CLI arg / OS file association (Tauri only)
+  // Stable refs — used by event listeners and one-shot effects to avoid
+  // stale closures and dependency-driven re-registration loops.
+  const fileTabsRef = useRef(fileTabs);
+  fileTabsRef.current = fileTabs;
+  const fileStateRef = useRef(fileState);
+  fileStateRef.current = fileState;
+
+  // Load file passed as CLI arg / OS file association (Tauri only).
+  // Runs once when editor mounts — refs prevent re-triggering on tab changes.
+  const initialLoadDone = useRef(false);
   useEffect(() => {
-    if (!isTauri() || !editor) return;
-    let cancelled = false;
+    if (!isTauri() || !editor || initialLoadDone.current) return;
+    initialLoadDone.current = true;
 
     interface OpenedFile {
       path: string;
@@ -101,29 +110,16 @@ export function App() {
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         const file = await invoke<OpenedFile | null>("get_opened_file");
-        if (cancelled || !file) return;
-        // handleOpenByPath routes through setContentRef which updates fileDir
-        // before calling editor.setContent.
-        fileTabs.openInTab(file.name, file.path, file.content);
-        fileState.handleOpenByPath(file.path, file.content);
+        if (!file) return;
+        fileTabsRef.current.openInTab(file.name, file.path, file.content);
+        fileStateRef.current.handleOpenByPath(file.path, file.content);
       } catch {
         // Not in Tauri or no file argument
       }
     })();
+  }, [editor]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [editor, fileState.handleOpenByPath, fileTabs.openInTab]);
-
-  // Stable refs for the single-instance listener — avoids re-registering
-  // the Tauri event listener every time tabs change, which caused a
-  // re-registration loop that spammed duplicate tabs.
-  const fileTabsRef = useRef(fileTabs);
-  fileTabsRef.current = fileTabs;
-  const fileStateRef = useRef(fileState);
-  fileStateRef.current = fileState;
-
+  // Single-instance listener — registers once, uses refs for current state.
   useEffect(() => {
     if (!isTauri() || !editor) return;
     let unlisten: (() => void) | null = null;
@@ -207,19 +203,19 @@ export function App() {
     await exportAsHtml(editor.getHTML(), fileState.fileName);
   }, [editor, fileState.fileName]);
 
-  // Sync tab state when fileState changes (after open/save/new operations)
+  // Sync tab state when fileState changes (after open/save/new operations).
+  // Uses refs so the effect always reads the current activeTabId.
   useEffect(() => {
-    fileTabs.markTabSaved(fileTabs.activeTabId, {
+    const ft = fileTabsRef.current;
+    ft.markTabSaved(ft.activeTabId, {
       filePath: fileState.filePath,
       fileName: fileState.fileName,
       savedContent: fileState.savedContent,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileState.filePath, fileState.fileName, fileState.savedContent]);
 
   useEffect(() => {
-    if (fileState.isDirty) fileTabs.markTabDirty();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (fileState.isDirty) fileTabsRef.current.markTabDirty();
   }, [fileState.isDirty]);
 
   const handleSwitchTab = useCallback(
