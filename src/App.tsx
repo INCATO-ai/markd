@@ -168,60 +168,6 @@ export function App() {
     [fileState.markDirty],
   );
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        switch (e.key) {
-          case "s":
-            e.preventDefault();
-            if (e.shiftKey) {
-              fileState.handleSaveAs();
-            } else {
-              fileState.handleSave();
-            }
-            break;
-          case "o":
-            e.preventDefault();
-            fileState.handleOpen();
-            break;
-          case "n":
-            e.preventDefault();
-            fileState.handleNew();
-            break;
-          case "\\":
-            e.preventDefault();
-            setSidebarCollapsed((c) => !c);
-            break;
-          case "f":
-            e.preventDefault();
-            setFindReplaceShowReplace(false);
-            setFindReplaceOpen(true);
-            break;
-          case "h":
-            e.preventDefault();
-            setFindReplaceShowReplace(true);
-            setFindReplaceOpen(true);
-            break;
-          case "/":
-            e.preventDefault();
-            handleToggleSource();
-            break;
-          // Focus Mode (Ctrl+Shift+F) disabled in v0.1.0 — see TODO.md.
-          // Re-enable by restoring this case.
-        }
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    fileState.handleSave,
-    fileState.handleSaveAs,
-    fileState.handleOpen,
-    fileState.handleNew,
-    handleToggleSource,
-  ]);
-
   // Window title
   useEffect(() => {
     document.title = `${fileState.fileName}${fileState.isDirty ? " \u2022" : ""} \u2014 Markd`;
@@ -274,17 +220,104 @@ export function App() {
   );
 
   const handleCloseTab = useCallback(
-    (tabId: string) => {
+    async (tabId: string) => {
+      const tab = fileTabs.tabs.find((t) => t.id === tabId);
+      if (tab && tab.isDirty) {
+        const shouldSave = window.confirm(
+          `"${tab.fileName}" has unsaved changes. Save before closing?`,
+        );
+        if (shouldSave) {
+          const saved = await fileState.handleSave();
+          if (!saved) return;
+        }
+      }
       const { switchTo } = fileTabs.closeTab(tabId);
       if (switchTo) fileState.restoreState(switchTo);
     },
-    [fileTabs.closeTab, fileState.restoreState],
+    [fileTabs.tabs, fileTabs.closeTab, fileState.handleSave, fileState.restoreState],
   );
 
   const handleNewTab = useCallback(() => {
     fileTabs.newTab();
     fileState.handleNew();
   }, [fileTabs.newTab, fileState.handleNew]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key) {
+          case "s":
+            e.preventDefault();
+            if (e.shiftKey) {
+              fileState.handleSaveAs();
+            } else {
+              fileState.handleSave();
+            }
+            break;
+          case "o":
+            e.preventDefault();
+            fileState.handleOpen();
+            break;
+          case "n":
+            e.preventDefault();
+            fileState.handleNew();
+            break;
+          case "\\":
+            e.preventDefault();
+            setSidebarCollapsed((c) => !c);
+            break;
+          case "f":
+            e.preventDefault();
+            setFindReplaceShowReplace(false);
+            setFindReplaceOpen(true);
+            break;
+          case "h":
+            e.preventDefault();
+            setFindReplaceShowReplace(true);
+            setFindReplaceOpen(true);
+            break;
+          case "/":
+            e.preventDefault();
+            handleToggleSource();
+            break;
+          case "w":
+            e.preventDefault();
+            handleCloseTab(fileTabs.activeTabId);
+            break;
+          case "Tab":
+            e.preventDefault();
+            if (fileTabs.tabs.length > 1) {
+              const idx = fileTabs.tabs.findIndex((t) => t.id === fileTabs.activeTabId);
+              const nextIdx = e.shiftKey
+                ? (idx - 1 + fileTabs.tabs.length) % fileTabs.tabs.length
+                : (idx + 1) % fileTabs.tabs.length;
+              const next = fileTabs.tabs[nextIdx];
+              if (next) handleSwitchTab(next.id);
+            }
+            break;
+          case "t":
+            if (e.shiftKey) break;
+            e.preventDefault();
+            handleNewTab();
+            break;
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    fileState.handleSave,
+    fileState.handleSaveAs,
+    fileState.handleOpen,
+    fileState.handleNew,
+    handleToggleSource,
+    handleCloseTab,
+    handleSwitchTab,
+    handleNewTab,
+    fileTabs.activeTabId,
+    fileTabs.tabs,
+  ]);
 
   const handleFileSelectWithTabs = useCallback(
     async (entry: { kind: string; name: string; path: string }) => {

@@ -15,7 +15,7 @@ export function TabBar({
   onCloseTab,
   onNewTab,
 }: TabBarProps) {
-  if (tabs.length <= 1 && !tabs[0]?.filePath) return null;
+  if (tabs.length <= 1 && !tabs[0]?.filePath && !tabs[0]?.isDirty) return null;
 
   return (
     <div className="markd-tab-bar">
@@ -25,6 +25,12 @@ export function TabBar({
             key={tab.id}
             className={`markd-tab ${tab.id === activeTabId ? "active" : ""}`}
             onClick={() => onSwitchTab(tab.id)}
+            onAuxClick={(e) => {
+              if (e.button === 1) {
+                e.preventDefault();
+                onCloseTab(tab.id);
+              }
+            }}
             title={tab.filePath ?? tab.fileName}
           >
             <span className="markd-tab-name">
