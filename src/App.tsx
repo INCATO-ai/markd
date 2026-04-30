@@ -104,6 +104,7 @@ export function App() {
         if (cancelled || !file) return;
         // handleOpenByPath routes through setContentRef which updates fileDir
         // before calling editor.setContent.
+        fileTabs.openInTab(file.name, file.path, file.content);
         fileState.handleOpenByPath(file.path, file.content);
       } catch {
         // Not in Tauri or no file argument
@@ -113,7 +114,34 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [editor, fileState.handleOpenByPath]);
+  }, [editor, fileState.handleOpenByPath, fileTabs.openInTab]);
+
+  // Listen for files opened from a second instance (single-instance plugin)
+  useEffect(() => {
+    if (!isTauri() || !editor) return;
+    let unlisten: (() => void) | null = null;
+
+    (async () => {
+      const { listen } = await import("@tauri-apps/api/event");
+      unlisten = await listen<string>("open-file-in-tab", async (event) => {
+        const filePath = event.payload;
+        const existing = fileTabs.tabs.find((t) => t.filePath === filePath);
+        if (existing) {
+          const target = fileTabs.switchTab(existing.id);
+          if (target) fileState.restoreState(target);
+          return;
+        }
+        fileTabs.openInTab(
+          filePath.split(/[/\\]/).pop() ?? "untitled.md",
+          filePath,
+          "",
+        );
+        await fileState.handleOpenByPath(filePath);
+      });
+    })();
+
+    return () => { unlisten?.(); };
+  }, [editor, fileState.handleOpenByPath, fileState.restoreState, fileTabs.tabs, fileTabs.openInTab, fileTabs.switchTab]);
 
   // Toggle source mode
   const handleToggleSource = useCallback(() => {
