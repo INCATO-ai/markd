@@ -31,7 +31,17 @@ function escapeRegex(str: string): string {
 
 const searchPluginKey = new PluginKey("searchAndReplace");
 
-function scrollToMatch(editor: { view: { domAtPos: (pos: number) => { node: Node; offset: number } } }, match: SearchResult) {
+function scrollToMatch(editor: { view: { coordsAtPos: (pos: number) => { top: number; bottom: number; left: number; right: number }; domAtPos: (pos: number) => { node: Node; offset: number }; dom: HTMLElement } }, match: SearchResult) {
+  const coords = editor.view.coordsAtPos(match.from);
+  const scrollEl = editor.view.dom.closest('.markd-editor-scroll');
+  if (scrollEl) {
+    const rect = scrollEl.getBoundingClientRect();
+    scrollEl.scrollTo({
+      top: coords.top - rect.top + scrollEl.scrollTop - rect.height / 2,
+      behavior: 'smooth',
+    });
+    return;
+  }
   const dom = editor.view.domAtPos(match.from);
   const el = dom.node instanceof HTMLElement ? dom.node : dom.node.parentElement;
   el?.scrollIntoView({ block: "center", behavior: "smooth" });

@@ -882,6 +882,16 @@ body {
   outline: 2px solid rgba(255, 140, 0, 0.8);
 }
 
+#write pre .markd-search-highlight,
+#write pre .markd-search-current {
+  position: relative;
+  background-color: rgba(255, 215, 0, 0.5);
+}
+
+#write pre .markd-search-current {
+  background-color: rgba(255, 165, 0, 0.75);
+}
+
 /* Source Editor */
 .markd-source-editor {
   flex: 1;
