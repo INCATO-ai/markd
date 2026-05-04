@@ -175,28 +175,37 @@ body {
   align-items: center;
   gap: 6px;
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 4px 4px 0 0;
   cursor: pointer;
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--control-text-color);
   white-space: nowrap;
-  max-width: 160px;
+  max-width: 200px;
   flex-shrink: 0;
   user-select: none;
+  border-bottom: 2px solid transparent;
 }
 
 .markd-tab:hover {
-  background: var(--hover-bg);
+  background: var(--item-hover-bg-color);
+  color: var(--item-hover-text-color, var(--text-color));
 }
 
 .markd-tab.active {
   color: var(--text-color);
-  background: var(--hover-bg);
+  background: var(--item-hover-bg-color);
+  border-bottom-color: var(--primary-color);
+  font-weight: 500;
 }
 
 .markd-tab-name {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.markd-tab-dir {
+  opacity: 0.5;
+  font-size: 11px;
 }
 
 .markd-tab-close {
@@ -464,6 +473,12 @@ body {
 #write p {
   margin-bottom: 0.8em;
   word-wrap: break-word;
+}
+
+/* Prevent bold text from visually merging with the next word when the
+   markdown source has no space after the closing ** (e.g. **bold**Next). */
+#write strong {
+  padding-right: 0.1em;
 }
 
 #write a {
