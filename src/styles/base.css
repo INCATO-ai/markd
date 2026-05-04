@@ -669,6 +669,36 @@ body {
   background: var(--item-hover-bg-color);
 }
 
+.markd-hotkey-hint {
+  margin-left: 6px;
+  font-size: 10px;
+  opacity: 0.6;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-family: monospace;
+}
+
+.markd-sidebar-filepath {
+  padding: 2px 12px 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.markd-file-path-hint {
+  display: block;
+  font-size: 10px;
+  opacity: 0.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Outline Panel */
 .markd-outline {
   padding: 4px 0;

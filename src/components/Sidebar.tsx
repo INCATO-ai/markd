@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import type { FileEntry } from "@/lib/file-system";
 import type { RecentFile } from "@/hooks/use-recent-files";
@@ -9,9 +9,13 @@ type SidebarTab = "files" | "outline";
 interface SidebarProps {
   tree: FileEntry[];
   activeFile: string;
+  activeFilePath: string | null;
   collapsed: boolean;
   editor: Editor | null;
   recentFiles: RecentFile[];
+  activeTab: SidebarTab;
+  onTabChange: (tab: SidebarTab) => void;
+  showHotkeyHints: boolean;
   onFileSelect: (entry: FileEntry) => void;
   onOpenFolder: () => void;
   onToggle: () => void;
@@ -21,31 +25,35 @@ interface SidebarProps {
 export function Sidebar({
   tree,
   activeFile,
+  activeFilePath,
   collapsed,
   editor,
   recentFiles,
+  activeTab,
+  onTabChange,
+  showHotkeyHints,
   onFileSelect,
   onOpenFolder,
   onToggle,
   onRecentFileSelect,
 }: SidebarProps) {
-  const [activeTab, setActiveTab] = useState<SidebarTab>("outline");
-
   return (
     <aside className={`markd-sidebar ${collapsed ? "collapsed" : ""}`}>
       <div className="markd-sidebar-header">
         <div className="markd-sidebar-tabs">
           <button
             className={`markd-sidebar-tab ${activeTab === "files" ? "active" : ""}`}
-            onClick={() => setActiveTab("files")}
+            onClick={() => onTabChange("files")}
           >
             Files
+            {showHotkeyHints && <span className="markd-hotkey-hint">Alt+1</span>}
           </button>
           <button
             className={`markd-sidebar-tab ${activeTab === "outline" ? "active" : ""}`}
-            onClick={() => setActiveTab("outline")}
+            onClick={() => onTabChange("outline")}
           >
             Outline
+            {showHotkeyHints && <span className="markd-hotkey-hint">Alt+2</span>}
           </button>
         </div>
         <div className="markd-sidebar-actions">
@@ -63,6 +71,12 @@ export function Sidebar({
           </button>
         </div>
       </div>
+
+      {activeFilePath && (
+        <div className="markd-sidebar-filepath" title={activeFilePath}>
+          {truncatePath(activeFilePath)}
+        </div>
+      )}
 
       {activeTab === "files" ? (
         <div className="markd-file-tree">
@@ -89,6 +103,13 @@ export function Sidebar({
       )}
     </aside>
   );
+}
+
+function truncatePath(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, "/");
+  const parts = normalized.split("/");
+  if (parts.length <= 3) return normalized;
+  return "…/" + parts.slice(-3).join("/");
 }
 
 /* ── Recent Files List ───────────────────────────────────────────── */
@@ -118,6 +139,9 @@ function RecentFilesList({
             </svg>
           </span>
           <span className="name">{file.name}</span>
+          <span className="markd-file-path-hint">
+            {truncatePath(file.path)}
+          </span>
         </div>
       ))}
     </div>
@@ -178,7 +202,7 @@ function FileTreeItem({
         style={{ paddingLeft: 16 + entry.depth * 16 }}
       >
         <span className="icon">
-          {entry.kind === "directory" ? (expanded ? "\u25BE" : "\u25B8") : (
+          {entry.kind === "directory" ? (expanded ? "▾" : "▸") : (
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M3 1h7l3 3v11H3V1z" />
               <path d="M10 1v3h3" />

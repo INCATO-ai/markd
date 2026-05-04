@@ -16,7 +16,7 @@ import { useRecentFiles } from "@/hooks/use-recent-files";
 import { useFullWidth } from "@/hooks/use-full-width";
 import { useFileTabs } from "@/hooks/use-file-tabs";
 import { TabBar } from "@/components/TabBar";
-import { exportAsHtml, exportAsPdf, readFileByPath } from "@/lib/file-system";
+import { exportAsHtml, exportAsPdf, readFileByPath, saveToFile } from "@/lib/file-system";
 
 function isTauri(): boolean {
   // Tauri v2 exposes the IPC bridge as __TAURI_INTERNALS__ by default;
@@ -26,6 +26,8 @@ function isTauri(): boolean {
 
 export function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<"files" | "outline">("outline");
+  const [showHotkeyHints, setShowHotkeyHints] = useState(false);
   const [findReplaceOpen, setFindReplaceOpen] = useState(false);
   const [findReplaceShowReplace, setFindReplaceShowReplace] = useState(false);
   const lastSearchTermRef = useRef("");
@@ -365,9 +367,56 @@ export function App() {
           case "s":
             e.preventDefault();
             if (e.shiftKey) {
-              fileState.handleSaveAs();
+              // Ctrl+Shift+S: save all dirty tabs
+              const allTabs = fileTabsRef.current.tabs;
+              const active = fileTabsRef.current.activeTabId;
+              (async () => {
+                for (const tab of allTabs) {
+                  if (!tab.isDirty || !tab.filePath) continue;
+                  if (tab.id === active) {
+                    await fileState.handleSave();
+                  } else {
+                    const ok = await saveToFile(tab.filePath, tab.content);
+                    if (ok) fileTabsRef.current.markTabSaved(tab.id, { savedContent: tab.content });
+                  }
+                }
+              })();
             } else {
               fileState.handleSave();
+            }
+            break;
+          case "r":
+            e.preventDefault();
+            if (e.shiftKey) {
+              // Ctrl+Shift+R: reload all tabs from disk
+              (async () => {
+                const ft = fileTabsRef.current;
+                const fs = fileStateRef.current;
+                for (const tab of ft.tabs) {
+                  if (!tab.filePath) continue;
+                  try {
+                    const content = await readFileByPath(tab.filePath);
+                    ft.hydrateTab(tab.id, content);
+                    if (tab.id === ft.activeTabId) {
+                      fs.handleOpenByPath(tab.filePath, content);
+                    }
+                  } catch { /* file gone */ }
+                }
+              })();
+            } else {
+              // Ctrl+R: reload active tab from disk
+              const active = fileTabsRef.current.tabs.find(
+                (t) => t.id === fileTabsRef.current.activeTabId,
+              );
+              if (active?.filePath) {
+                (async () => {
+                  try {
+                    const content = await readFileByPath(active.filePath!);
+                    fileTabsRef.current.hydrateTab(active.id, content);
+                    fileStateRef.current.handleOpenByPath(active.filePath!, content);
+                  } catch { /* file gone */ }
+                })();
+              }
             }
             break;
           case "o":
@@ -413,6 +462,18 @@ export function App() {
         }
       }
 
+      if (e.altKey && !e.ctrlKey) {
+        if (e.key === "1") {
+          e.preventDefault();
+          setSidebarTab("files");
+          setSidebarCollapsed(false);
+        } else if (e.key === "2") {
+          e.preventDefault();
+          setSidebarTab("outline");
+          setSidebarCollapsed(false);
+        }
+      }
+
       if (e.key === "F3") {
         e.preventDefault();
         if (!editor) return;
@@ -440,6 +501,29 @@ export function App() {
     cycleTab,
     fileTabs.activeTabId,
   ]);
+
+  // Show hotkey hints while Ctrl or Alt is held
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if ((e.key === "Control" || e.key === "Alt") && !e.repeat) {
+        setShowHotkeyHints(true);
+      }
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.key === "Control" || e.key === "Alt") {
+        setShowHotkeyHints(false);
+      }
+    };
+    const blur = () => setShowHotkeyHints(false);
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", blur);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", blur);
+    };
+  }, []);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -494,9 +578,13 @@ export function App() {
       <Sidebar
         tree={fileState.dirTree}
         activeFile={fileState.fileName}
+        activeFilePath={fileState.filePath}
         collapsed={sidebarCollapsed}
         editor={editor}
         recentFiles={recentFiles}
+        activeTab={sidebarTab}
+        onTabChange={setSidebarTab}
+        showHotkeyHints={showHotkeyHints}
         onFileSelect={handleFileSelectWithTabs}
         onOpenFolder={fileState.handleOpenFolder}
         onToggle={() => setSidebarCollapsed((c) => !c)}
