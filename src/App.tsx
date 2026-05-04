@@ -95,11 +95,15 @@ export function App() {
   fileStateRef.current = fileState;
 
   // Load file passed as CLI arg / OS file association (Tauri only).
-  // Runs once when editor mounts — refs prevent re-triggering on tab changes.
+  // Skipped when tabs were restored from persistence (refresh case).
   const initialLoadDone = useRef(false);
   useEffect(() => {
     if (!isTauri() || !editor || initialLoadDone.current) return;
     initialLoadDone.current = true;
+
+    // If tabs were restored from localStorage, hydration handles content loading
+    const hasPersistedTabs = fileTabsRef.current.tabs.some((t) => t.filePath);
+    if (hasPersistedTabs) return;
 
     interface OpenedFile {
       path: string;
@@ -133,33 +137,32 @@ export function App() {
       const tabs = ft.tabs;
       const activeId = ft.activeTabId;
 
-      // Only hydrate tabs that have a path but no content (restored from localStorage)
       const needsHydration = tabs.filter((t) => t.filePath && t.content === "");
       if (needsHydration.length === 0) return;
 
-      // Hydrate active tab first for fast perceived load
+      // Hydrate active tab first — sets editor content directly
       const activeTab = needsHydration.find((t) => t.id === activeId);
       if (activeTab && activeTab.filePath) {
         try {
           const content = await readFileByPath(activeTab.filePath);
-          ft.openInTab(activeTab.fileName, activeTab.filePath, content);
+          ft.hydrateTab(activeTab.id, content);
           fs.handleOpenByPath(activeTab.filePath, content);
           requestAnimationFrame(() => {
             const el = document.querySelector(".markd-editor-scroll") as HTMLElement | null;
             if (el) el.scrollTop = activeTab.scrollTop;
           });
         } catch {
-          // File no longer exists — tab will be dropped by closeTab on next interaction
+          ft.closeTab(activeTab.id);
         }
       }
 
-      // Hydrate remaining tabs in background (content stored in tab state for switching)
+      // Hydrate background tabs — update content in state without switching
       for (const tab of needsHydration) {
         if (tab.id === activeId) continue;
         if (!tab.filePath) continue;
         try {
           const content = await readFileByPath(tab.filePath);
-          ft.openInTab(tab.fileName, tab.filePath, content);
+          ft.hydrateTab(tab.id, content);
         } catch {
           ft.closeTab(tab.id);
         }

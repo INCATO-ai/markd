@@ -287,6 +287,18 @@ export function useFileTabs() {
     [],
   );
 
+  // Update a tab's content without switching to it — used for background hydration
+  const hydrateTab = useCallback(
+    (tabId: string, content: string) => {
+      setTabs((prev) =>
+        prev.map((t) =>
+          t.id === tabId ? { ...t, content, savedContent: content, isDirty: false } : t,
+        ),
+      );
+    },
+    [],
+  );
+
   return {
     tabs,
     activeTab,
@@ -297,6 +309,7 @@ export function useFileTabs() {
     closeTab,
     markTabDirty,
     markTabSaved,
+    hydrateTab,
     registerGetMarkdown,
   };
 }
