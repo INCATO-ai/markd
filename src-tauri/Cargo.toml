@@ -1,6 +1,6 @@
 [package]
 name = "markd"
-version = "0.1.0"
+version = "0.2.2"
 description = "A Typora-like Markdown editor"
 authors = ["Incato"]
 license = "MIT"
@@ -22,3 +22,5 @@ tauri = { version = "2.10.3", features = ["devtools"] }
 tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-window-state = "2"

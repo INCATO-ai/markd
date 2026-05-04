@@ -14,12 +14,17 @@ Published publicly because it solves a real problem and a few people asked. If i
 
 - WYSIWYG rendered view with a keyboard-shortcut source-mode toggle (Ctrl+/)
 - File / Edit / View / Help menubar with native shortcuts
-- Recent files, folder-tree sidebar, outline panel
-- Find + replace (Ctrl+F / Ctrl+H)
+- Multi-tab editing with middle-click close, dirty indicators, and Ctrl+T / Ctrl+W / Ctrl+Tab shortcuts
+- Recent files, folder-tree sidebar, outline panel with scroll-aware active heading highlight
+- Drag-to-reorder document sections from the outline sidebar (or keyboard Alt+Up/Down)
+- Find + replace (Ctrl+F / Ctrl+H) with regex, whole-word, and case-sensitive toggles
+- F3 / Shift+F3 to find next/previous without reopening the panel; Ctrl+F3 to select word and search
 - Auto-save every 30 seconds for named files
+- Window size and position remembered across restarts
 - Two themes (light, dark) — extendable via CSS custom properties
 - Syntax highlighting for fenced code blocks (via [lowlight](https://github.com/wooorm/lowlight))
 - Relative image paths resolve against the current file's directory — your markdown stays portable
+- Single-instance: opening a file while Markd is running opens it in a new tab
 - `.md` / `.markdown` / `.mdx` / `.txt` file associations on install
 - PDF export via print-to-file with chrome-less print stylesheet
 

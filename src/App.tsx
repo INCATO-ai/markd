@@ -14,7 +14,9 @@ import { SourceEditor } from "@/components/SourceEditor";
 import { ContextMenu } from "@/components/ContextMenu";
 import { useRecentFiles } from "@/hooks/use-recent-files";
 import { useFullWidth } from "@/hooks/use-full-width";
-import { exportAsHtml, exportAsPdf } from "@/lib/file-system";
+import { useFileTabs } from "@/hooks/use-file-tabs";
+import { TabBar } from "@/components/TabBar";
+import { exportAsHtml, exportAsPdf, readFileByPath, saveToFile } from "@/lib/file-system";
 
 function isTauri(): boolean {
   // Tauri v2 exposes the IPC bridge as __TAURI_INTERNALS__ by default;
@@ -24,8 +26,11 @@ function isTauri(): boolean {
 
 export function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<"files" | "outline">("outline");
+  const [heldModifier, setHeldModifier] = useState<"ctrl" | "alt" | null>(null);
   const [findReplaceOpen, setFindReplaceOpen] = useState(false);
   const [findReplaceShowReplace, setFindReplaceShowReplace] = useState(false);
+  const lastSearchTermRef = useRef("");
   const [sourceMode, setSourceMode] = useState(false);
   const [sourceMarkdown, setSourceMarkdown] = useState("");
   const [focusMode, setFocusMode] = useState(false);
@@ -33,6 +38,7 @@ export function App() {
   const { fullWidth, toggleFullWidth } = useFullWidth();
   const fileState = useFileState();
   const { recentFiles, addRecentFile } = useRecentFiles();
+  const fileTabs = useFileTabs();
 
   // Directory of the currently-open file. Read by ResolvedImage at renderHTML
   // time, so it must be updated BEFORE setContent runs — do it synchronously
@@ -68,13 +74,13 @@ export function App() {
       return editor.storage.markdown.getMarkdown();
     });
     fileState.registerSetContent((md: string, fileDir: string) => {
-      // Update fileDirRef BEFORE setContent so ResolvedImage.renderHTML sees
-      // the correct dir when it resolves relative paths.
       fileDirRef.current = fileDir;
-      // emitUpdate=false: loading a file must not fire onUpdate → markDirty.
       editor.commands.setContent(md, false);
     });
-  }, [editor, fileState.registerGetMarkdown, fileState.registerSetContent]);
+    fileTabs.registerGetMarkdown(() => {
+      return editor.storage.markdown.getMarkdown();
+    });
+  }, [editor, fileState.registerGetMarkdown, fileState.registerSetContent, fileTabs.registerGetMarkdown]);
 
   // Track recent files when files are opened/saved
   useEffect(() => {
@@ -83,10 +89,23 @@ export function App() {
     }
   }, [fileState.filePath, fileState.fileName, addRecentFile]);
 
-  // Load file passed as CLI arg / OS file association (Tauri only)
+  // Stable refs — used by event listeners and one-shot effects to avoid
+  // stale closures and dependency-driven re-registration loops.
+  const fileTabsRef = useRef(fileTabs);
+  fileTabsRef.current = fileTabs;
+  const fileStateRef = useRef(fileState);
+  fileStateRef.current = fileState;
+
+  // Load file passed as CLI arg / OS file association (Tauri only).
+  // Skipped when tabs were restored from persistence (refresh case).
+  const initialLoadDone = useRef(false);
   useEffect(() => {
-    if (!isTauri() || !editor) return;
-    let cancelled = false;
+    if (!isTauri() || !editor || initialLoadDone.current) return;
+    initialLoadDone.current = true;
+
+    // If tabs were restored from localStorage, hydration handles content loading
+    const hasPersistedTabs = fileTabsRef.current.tabs.some((t) => t.filePath);
+    if (hasPersistedTabs) return;
 
     interface OpenedFile {
       path: string;
@@ -98,19 +117,91 @@ export function App() {
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         const file = await invoke<OpenedFile | null>("get_opened_file");
-        if (cancelled || !file) return;
-        // handleOpenByPath routes through setContentRef which updates fileDir
-        // before calling editor.setContent.
-        fileState.handleOpenByPath(file.path, file.content);
+        if (!file) return;
+        fileTabsRef.current.openInTab(file.name, file.path, file.content);
+        fileStateRef.current.handleOpenByPath(file.path, file.content);
       } catch {
         // Not in Tauri or no file argument
       }
     })();
+  }, [editor]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [editor, fileState.handleOpenByPath]);
+  // Hydrate persisted tabs from disk — runs once after editor mounts.
+  // Tabs restored from localStorage have filePath but empty content.
+  const hydrationDone = useRef(false);
+  useEffect(() => {
+    if (!isTauri() || !editor || hydrationDone.current) return;
+    hydrationDone.current = true;
+
+    (async () => {
+      const ft = fileTabsRef.current;
+      const fs = fileStateRef.current;
+      const tabs = ft.tabs;
+      const activeId = ft.activeTabId;
+
+      const needsHydration = tabs.filter((t) => t.filePath && t.content === "");
+      if (needsHydration.length === 0) return;
+
+      // Hydrate active tab first — sets editor content directly
+      const activeTab = needsHydration.find((t) => t.id === activeId);
+      if (activeTab && activeTab.filePath) {
+        try {
+          const content = await readFileByPath(activeTab.filePath);
+          ft.hydrateTab(activeTab.id, content);
+          fs.handleOpenByPath(activeTab.filePath, content);
+          requestAnimationFrame(() => {
+            const el = document.querySelector(".markd-editor-scroll") as HTMLElement | null;
+            if (el) el.scrollTop = activeTab.scrollTop;
+          });
+        } catch {
+          ft.closeTab(activeTab.id);
+        }
+      }
+
+      // Hydrate background tabs — update content in state without switching
+      for (const tab of needsHydration) {
+        if (tab.id === activeId) continue;
+        if (!tab.filePath) continue;
+        try {
+          const content = await readFileByPath(tab.filePath);
+          ft.hydrateTab(tab.id, content);
+        } catch {
+          ft.closeTab(tab.id);
+        }
+      }
+    })();
+  }, [editor]);
+
+  // Single-instance listener — registers once, uses refs for current state.
+  useEffect(() => {
+    if (!isTauri() || !editor) return;
+    let unlisten: (() => void) | null = null;
+    let cancelled = false;
+
+    (async () => {
+      const { listen } = await import("@tauri-apps/api/event");
+      if (cancelled) return;
+      unlisten = await listen<string>("open-file-in-tab", async (event) => {
+        const ft = fileTabsRef.current;
+        const fs = fileStateRef.current;
+        const filePath = event.payload;
+        const existing = ft.tabs.find((t) => t.filePath === filePath);
+        if (existing) {
+          const target = ft.switchTab(existing.id);
+          if (target) fs.restoreState(target);
+          return;
+        }
+        ft.openInTab(
+          filePath.split(/[/\\]/).pop() ?? "untitled.md",
+          filePath,
+          "",
+        );
+        await fs.handleOpenByPath(filePath);
+      });
+    })();
+
+    return () => { cancelled = true; unlisten?.(); };
+  }, [editor]);
 
   // Toggle source mode
   const handleToggleSource = useCallback(() => {
@@ -136,60 +227,6 @@ export function App() {
     },
     [fileState.markDirty],
   );
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        switch (e.key) {
-          case "s":
-            e.preventDefault();
-            if (e.shiftKey) {
-              fileState.handleSaveAs();
-            } else {
-              fileState.handleSave();
-            }
-            break;
-          case "o":
-            e.preventDefault();
-            fileState.handleOpen();
-            break;
-          case "n":
-            e.preventDefault();
-            fileState.handleNew();
-            break;
-          case "\\":
-            e.preventDefault();
-            setSidebarCollapsed((c) => !c);
-            break;
-          case "f":
-            e.preventDefault();
-            setFindReplaceShowReplace(false);
-            setFindReplaceOpen(true);
-            break;
-          case "h":
-            e.preventDefault();
-            setFindReplaceShowReplace(true);
-            setFindReplaceOpen(true);
-            break;
-          case "/":
-            e.preventDefault();
-            handleToggleSource();
-            break;
-          // Focus Mode (Ctrl+Shift+F) disabled in v0.1.0 — see TODO.md.
-          // Re-enable by restoring this case.
-        }
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    fileState.handleSave,
-    fileState.handleSaveAs,
-    fileState.handleOpen,
-    fileState.handleNew,
-    handleToggleSource,
-  ]);
 
   // Window title
   useEffect(() => {
@@ -219,20 +256,373 @@ export function App() {
     await exportAsHtml(editor.getHTML(), fileState.fileName);
   }, [editor, fileState.fileName]);
 
+  // Sync tab state when fileState changes (after open/save/new operations).
+  // Uses refs so the effect always reads the current activeTabId.
+  useEffect(() => {
+    const ft = fileTabsRef.current;
+    ft.markTabSaved(ft.activeTabId, {
+      filePath: fileState.filePath,
+      fileName: fileState.fileName,
+      savedContent: fileState.savedContent,
+    });
+  }, [fileState.filePath, fileState.fileName, fileState.savedContent]);
+
+  useEffect(() => {
+    if (fileState.isDirty) fileTabsRef.current.markTabDirty();
+  }, [fileState.isDirty]);
+
+  const handleSwitchTab = useCallback(
+    (tabId: string) => {
+      const scrollEl = document.querySelector(".markd-editor-scroll") as HTMLElement | null;
+      const departingScroll = scrollEl?.scrollTop ?? 0;
+      const target = fileTabs.switchTab(tabId, departingScroll);
+      if (target) {
+        fileState.restoreState(target);
+        requestAnimationFrame(() => {
+          const el = document.querySelector(".markd-editor-scroll") as HTMLElement | null;
+          if (el) el.scrollTop = target.scrollTop;
+        });
+      }
+    },
+    [fileTabs.switchTab, fileState.restoreState],
+  );
+
+  const handleCloseTab = useCallback(
+    async (tabId: string) => {
+      const tab = fileTabs.tabs.find((t) => t.id === tabId);
+      if (tab && tab.isDirty) {
+        const shouldSave = window.confirm(
+          `"${tab.fileName}" has unsaved changes.\n\nSave before closing?`,
+        );
+        if (shouldSave) {
+          const saved = await fileState.handleSave();
+          if (!saved) return;
+        } else {
+          const discard = window.confirm(
+            `Discard changes to "${tab.fileName}"?`,
+          );
+          if (!discard) return;
+        }
+      }
+      const { switchTo } = fileTabs.closeTab(tabId);
+      if (switchTo) {
+        fileState.restoreState(switchTo);
+        requestAnimationFrame(() => {
+          const el = document.querySelector(".markd-editor-scroll") as HTMLElement | null;
+          if (el) el.scrollTop = switchTo.scrollTop;
+        });
+      }
+    },
+    [fileTabs.tabs, fileTabs.closeTab, fileState.handleSave, fileState.restoreState],
+  );
+
+  const handleNewTab = useCallback(() => {
+    fileTabs.newTab();
+    fileState.handleNew();
+    requestAnimationFrame(() => {
+      const el = document.querySelector(".markd-editor-scroll") as HTMLElement | null;
+      if (el) el.scrollTop = 0;
+    });
+  }, [fileTabs.newTab, fileState.handleNew]);
+
+  const cycleTab = useCallback(
+    (direction: 1 | -1) => {
+      const t = fileTabs.tabs;
+      if (t.length <= 1) return;
+      const idx = t.findIndex((tab) => tab.id === fileTabs.activeTabId);
+      const nextIdx = (idx + direction + t.length) % t.length;
+      const next = t[nextIdx];
+      if (next) handleSwitchTab(next.id);
+    },
+    [fileTabs.tabs, fileTabs.activeTabId, handleSwitchTab],
+  );
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === "F3" && editor) {
+          e.preventDefault();
+          const { from, to } = editor.state.selection;
+          let term = "";
+          if (from !== to) {
+            term = editor.state.doc.textBetween(from, to);
+          } else {
+            const $pos = editor.state.doc.resolve(from);
+            const text = $pos.parent.textContent;
+            const offset = $pos.parentOffset;
+            let start = offset;
+            let end = offset;
+            while (start > 0 && /\w/.test(text[start - 1]!)) start--;
+            while (end < text.length && /\w/.test(text[end]!)) end++;
+            if (start !== end) {
+              term = text.slice(start, end);
+            }
+          }
+          if (term) {
+            editor.commands.setSearchTerm(term);
+            setFindReplaceOpen(true);
+            setFindReplaceShowReplace(false);
+            window.dispatchEvent(new Event("markd:find-focus"));
+          }
+          return;
+        }
+
+        switch (e.key) {
+          case "s":
+            e.preventDefault();
+            if (e.shiftKey) {
+              // Ctrl+Shift+S: save all dirty tabs
+              const allTabs = fileTabsRef.current.tabs;
+              const active = fileTabsRef.current.activeTabId;
+              (async () => {
+                for (const tab of allTabs) {
+                  if (!tab.isDirty || !tab.filePath) continue;
+                  if (tab.id === active) {
+                    await fileState.handleSave();
+                  } else {
+                    const ok = await saveToFile(tab.filePath, tab.content);
+                    if (ok) fileTabsRef.current.markTabSaved(tab.id, { savedContent: tab.content });
+                  }
+                }
+              })();
+            } else {
+              fileState.handleSave();
+            }
+            break;
+          case "r":
+            e.preventDefault();
+            if (e.shiftKey) {
+              // Ctrl+Shift+R: reload all tabs from disk
+              (async () => {
+                const ft = fileTabsRef.current;
+                const fs = fileStateRef.current;
+                for (const tab of ft.tabs) {
+                  if (!tab.filePath) continue;
+                  try {
+                    const content = await readFileByPath(tab.filePath);
+                    ft.hydrateTab(tab.id, content);
+                    if (tab.id === ft.activeTabId) {
+                      fs.handleOpenByPath(tab.filePath, content);
+                    }
+                  } catch { /* file gone */ }
+                }
+              })();
+            } else {
+              // Ctrl+R: reload active tab from disk
+              const active = fileTabsRef.current.tabs.find(
+                (t) => t.id === fileTabsRef.current.activeTabId,
+              );
+              if (active?.filePath) {
+                (async () => {
+                  try {
+                    const content = await readFileByPath(active.filePath!);
+                    fileTabsRef.current.hydrateTab(active.id, content);
+                    fileStateRef.current.handleOpenByPath(active.filePath!, content);
+                  } catch { /* file gone */ }
+                })();
+              }
+            }
+            break;
+          case "o":
+            e.preventDefault();
+            fileState.handleOpen();
+            break;
+          case "n":
+            e.preventDefault();
+            fileState.handleNew();
+            break;
+          case "\\":
+            e.preventDefault();
+            setSidebarCollapsed((c) => !c);
+            break;
+          case "f":
+            e.preventDefault();
+            setFindReplaceShowReplace(false);
+            setFindReplaceOpen(true);
+            window.dispatchEvent(new Event("markd:find-focus"));
+            break;
+          case "h":
+            e.preventDefault();
+            setFindReplaceShowReplace(true);
+            setFindReplaceOpen(true);
+            break;
+          case "/":
+            e.preventDefault();
+            handleToggleSource();
+            break;
+          case "w":
+            e.preventDefault();
+            handleCloseTab(fileTabs.activeTabId);
+            break;
+          case "Tab":
+            e.preventDefault();
+            cycleTab(e.shiftKey ? -1 : 1);
+            break;
+          case "t":
+            if (e.shiftKey) break;
+            e.preventDefault();
+            handleNewTab();
+            break;
+        }
+      }
+
+      if (e.altKey && !e.ctrlKey) {
+        if (e.key === "1") {
+          e.preventDefault();
+          setSidebarTab("files");
+          setSidebarCollapsed(false);
+        } else if (e.key === "2") {
+          e.preventDefault();
+          setSidebarTab("outline");
+          setSidebarCollapsed(false);
+        }
+      }
+
+      if (e.key === "F3") {
+        e.preventDefault();
+        if (!editor) return;
+        const storage = editor.storage.searchAndReplace;
+        if (!storage.searchTerm && lastSearchTermRef.current) {
+          editor.commands.setSearchTerm(lastSearchTermRef.current);
+        }
+        if (e.shiftKey) {
+          editor.commands.findPrevious();
+        } else {
+          editor.commands.findNext();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    fileState.handleSave,
+    fileState.handleSaveAs,
+    fileState.handleOpen,
+    fileState.handleNew,
+    handleToggleSource,
+    handleCloseTab,
+    handleNewTab,
+    cycleTab,
+    fileTabs.activeTabId,
+  ]);
+
+  // Show modifier-specific hotkey hints while Ctrl or Alt is held.
+  // Reads e.ctrlKey/e.altKey (physical state) instead of matching e.key,
+  // preventing desync when Windows menu bar activation swallows keyup.
+  useEffect(() => {
+    const sync = (e: KeyboardEvent) => {
+      if (e.key === "Alt") e.preventDefault();
+      if (e.ctrlKey && !e.altKey) setHeldModifier("ctrl");
+      else if (e.altKey && !e.ctrlKey) setHeldModifier("alt");
+      else setHeldModifier(null);
+    };
+    const blur = () => setHeldModifier(null);
+    window.addEventListener("keydown", sync, true);
+    window.addEventListener("keyup", sync, true);
+    window.addEventListener("blur", blur);
+    return () => {
+      window.removeEventListener("keydown", sync, true);
+      window.removeEventListener("keyup", sync, true);
+      window.removeEventListener("blur", blur);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      lastSearchTermRef.current = (e as CustomEvent).detail;
+    };
+    window.addEventListener("markd:search-term", handler);
+    return () => window.removeEventListener("markd:search-term", handler);
+  }, []);
+
+  // Detect external file modifications on the active tab (poll mtime every 2s)
+  const lastMtimeRef = useRef<number | null>(null);
+  const fileChangePromptOpen = useRef(false);
+  useEffect(() => {
+    const filePath = fileState.filePath;
+    if (!isTauri() || !filePath) {
+      lastMtimeRef.current = null;
+      return;
+    }
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval>;
+
+    (async () => {
+      try {
+        const { stat } = await import("@tauri-apps/plugin-fs");
+        const info = await stat(filePath);
+        if (cancelled) return;
+        lastMtimeRef.current = info.mtime?.getTime() ?? null;
+
+        timer = setInterval(async () => {
+          if (cancelled || fileChangePromptOpen.current) return;
+          try {
+            const current = await stat(filePath);
+            const currentMtime = current.mtime?.getTime() ?? null;
+            if (lastMtimeRef.current && currentMtime && currentMtime > lastMtimeRef.current) {
+              lastMtimeRef.current = currentMtime;
+              fileChangePromptOpen.current = true;
+              const reload = window.confirm(
+                `"${fileState.fileName}" has been modified outside Markd.\n\nReload from disk?`,
+              );
+              fileChangePromptOpen.current = false;
+              if (reload) {
+                const content = await readFileByPath(filePath);
+                fileTabsRef.current.hydrateTab(fileTabsRef.current.activeTabId, content);
+                fileStateRef.current.handleOpenByPath(filePath, content);
+              }
+            }
+          } catch { /* file may have been deleted */ }
+        }, 2000);
+      } catch { /* stat not available */ }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (timer!) clearInterval(timer);
+    };
+  }, [fileState.filePath, fileState.fileName]);
+
+  const handleFileSelectWithTabs = useCallback(
+    async (entry: { kind: string; name: string; path: string }) => {
+      if (entry.kind !== "file") return;
+      const existing = fileTabs.tabs.find((t) => t.filePath === entry.path);
+      if (existing) {
+        handleSwitchTab(existing.id);
+        return;
+      }
+      const { tab, isNew } = fileTabs.openInTab(entry.name, entry.path, "");
+      try {
+        await fileState.handleOpenByPath(entry.path);
+      } catch {
+        if (isNew) fileTabs.closeTab(tab.id);
+      }
+    },
+    [fileTabs.tabs, fileTabs.openInTab, handleSwitchTab, fileState.handleOpenByPath],
+  );
+
   const handleRecentFileSelect = useCallback(
     async (file: { name: string; path: string }) => {
       try {
+        const existing = fileTabs.tabs.find((t) => t.filePath === file.path);
+        if (existing) {
+          handleSwitchTab(existing.id);
+          return;
+        }
+        fileTabs.openInTab(file.name, file.path, "");
         await fileState.handleOpenByPath(file.path);
       } catch (err) {
         console.error("Failed to open recent file:", err);
       }
     },
-    [fileState.handleOpenByPath],
+    [fileState.handleOpenByPath, fileTabs.tabs, fileTabs.openInTab, handleSwitchTab],
   );
 
   const handleCloseFindReplace = useCallback(() => {
     setFindReplaceOpen(false);
-    editor?.commands.clearSearch();
+    editor?.commands.clearDecorations();
   }, [editor]);
 
   return (
@@ -240,15 +630,26 @@ export function App() {
       <Sidebar
         tree={fileState.dirTree}
         activeFile={fileState.fileName}
+        activeFilePath={fileState.filePath}
         collapsed={sidebarCollapsed}
         editor={editor}
         recentFiles={recentFiles}
-        onFileSelect={fileState.handleFileSelect}
+        activeTab={sidebarTab}
+        onTabChange={setSidebarTab}
+        heldModifier={heldModifier}
+        onFileSelect={handleFileSelectWithTabs}
         onOpenFolder={fileState.handleOpenFolder}
         onToggle={() => setSidebarCollapsed((c) => !c)}
         onRecentFileSelect={handleRecentFileSelect}
       />
       <div className="markd-editor-area">
+        <TabBar
+          tabs={fileTabs.tabs}
+          activeTabId={fileTabs.activeTabId}
+          onSwitchTab={handleSwitchTab}
+          onCloseTab={handleCloseTab}
+          onNewTab={handleNewTab}
+        />
         <Menubar
           editor={editor}
           sidebarCollapsed={sidebarCollapsed}
@@ -277,6 +678,10 @@ export function App() {
           onToggleFocusMode={() => setFocusMode((f) => !f)}
           onToggleFullWidth={toggleFullWidth}
           onThemeSelect={(id) => switchTheme(id as typeof activeTheme)}
+          onNewTab={handleNewTab}
+          onCloseTab={() => handleCloseTab(fileTabs.activeTabId)}
+          onNextTab={() => cycleTab(1)}
+          onPrevTab={() => cycleTab(-1)}
         />
         <div className="markd-topbar">
           {sidebarCollapsed && (
@@ -291,7 +696,7 @@ export function App() {
               </svg>
             </button>
           )}
-          <Toolbar editor={editor} />
+          <Toolbar editor={editor} heldModifier={heldModifier} />
         </div>
         <div className="markd-editor-content">
           {findReplaceOpen && (

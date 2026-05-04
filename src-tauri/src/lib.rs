@@ -1,4 +1,5 @@
 use serde::Serialize;
+use tauri::{Emitter, Manager};
 
 #[derive(Serialize, Clone)]
 struct OpenedFile {
@@ -67,6 +68,24 @@ fn read_dir(path: String) -> Result<Vec<DirEntry>, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if let Some(file_path) = args.iter().skip(1).find(|a| !a.starts_with('-')) {
+                let path = std::path::Path::new(file_path);
+                let valid_ext = path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .map(|e| matches!(e, "md" | "markdown" | "mdx" | "txt"))
+                    .unwrap_or(false);
+                if valid_ext && path.is_file() {
+                    let _ = app.emit("open-file-in-tab", file_path.clone());
+                }
+            }
+            // Focus the existing window.
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.set_focus();
+            }
+        }))
+        .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![get_opened_file, read_file, write_file, read_dir])
@@ -78,8 +97,11 @@ pub fn run() {
                         .build(),
                 )?;
             }
-            // Direct-open is handled on the frontend by invoking get_opened_file
-            // once the editor is ready. No timed emit — that was race-prone.
+            // Window starts hidden (tauri.conf.json visible:false) so the
+            // window-state plugin can restore size before the user sees it.
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+            }
             Ok(())
         })
         .run(tauri::generate_context!())

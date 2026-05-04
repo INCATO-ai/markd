@@ -12,6 +12,8 @@ export function FindReplace({ editor, showReplace, onClose }: FindReplaceProps) 
   const [searchTerm, setSearchTerm] = useState("");
   const [replaceTerm, setReplaceTerm] = useState("");
   const [caseSensitive, setCaseSensitive] = useState(false);
+  const [useRegex, setUseRegex] = useState(false);
+  const [wholeWord, setWholeWord] = useState(false);
   const [replaceVisible, setReplaceVisible] = useState(showReplace);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -20,16 +22,28 @@ export function FindReplace({ editor, showReplace, onClose }: FindReplaceProps) 
     setReplaceVisible(showReplace);
   }, [showReplace]);
 
-  // Focus search input on mount
+  // Focus search input on mount and on Ctrl+F re-press
   useEffect(() => {
     searchInputRef.current?.focus();
     searchInputRef.current?.select();
   }, []);
 
-  // Update search on term or case sensitivity change
+  useEffect(() => {
+    const handleFindFocus = () => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    };
+    window.addEventListener("markd:find-focus", handleFindFocus);
+    return () => window.removeEventListener("markd:find-focus", handleFindFocus);
+  }, []);
+
+  // Update search on term change and notify App for F3 reuse
   useEffect(() => {
     if (!editor) return;
     editor.commands.setSearchTerm(searchTerm);
+    if (searchTerm) {
+      window.dispatchEvent(new CustomEvent("markd:search-term", { detail: searchTerm }));
+    }
   }, [editor, searchTerm]);
 
   useEffect(() => {
@@ -37,16 +51,40 @@ export function FindReplace({ editor, showReplace, onClose }: FindReplaceProps) 
     editor.commands.setCaseSensitive(caseSensitive);
   }, [editor, caseSensitive]);
 
-  // Clear search on unmount
+  useEffect(() => {
+    if (!editor) return;
+    editor.commands.setUseRegex(useRegex);
+  }, [editor, useRegex]);
+
+  useEffect(() => {
+    if (!editor) return;
+    editor.commands.setWholeWord(wholeWord);
+  }, [editor, wholeWord]);
+
+  // Re-render when document changes so match count stays fresh
+  const [, setSearchVersion] = useState(0);
+  useEffect(() => {
+    if (!editor) return;
+    const onTransaction = ({ transaction }: { transaction: { docChanged: boolean } }) => {
+      if (transaction.docChanged) setSearchVersion((v) => v + 1);
+    };
+    editor.on("transaction", onTransaction);
+    return () => {
+      editor.off("transaction", onTransaction);
+    };
+  }, [editor]);
+
+  // Clear decorations on unmount (preserve search term for F3 reuse)
   useEffect(() => {
     return () => {
-      editor?.commands.clearSearch();
+      editor?.commands.clearDecorations();
     };
   }, [editor]);
 
   const storage = editor?.storage.searchAndReplace as SearchState | undefined;
   const matchCount = storage?.results.length ?? 0;
   const currentIndex = storage?.currentIndex ?? -1;
+  const regexError = storage?.regexError ?? null;
 
   const handleNext = useCallback(() => {
     editor?.commands.nextMatch();
@@ -83,7 +121,7 @@ export function FindReplace({ editor, showReplace, onClose }: FindReplaceProps) 
   if (!editor) return null;
 
   return (
-    <div className="markd-find-replace" onKeyDown={handleKeyDown}>
+    <div className="markd-find-replace" role="search" aria-label="Find and replace" onKeyDown={handleKeyDown}>
       <div className="markd-find-row">
         <input
           ref={searchInputRef}
@@ -91,9 +129,10 @@ export function FindReplace({ editor, showReplace, onClose }: FindReplaceProps) 
           placeholder="Find..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="markd-find-input"
+          className={`markd-find-input ${useRegex && regexError ? "markd-find-input-error" : ""}`}
+          aria-invalid={useRegex && regexError ? true : undefined}
         />
-        <span className="markd-find-count">
+        <span className="markd-find-count" aria-live="polite">
           {matchCount > 0
             ? `${currentIndex + 1} of ${matchCount}`
             : searchTerm
@@ -104,8 +143,27 @@ export function FindReplace({ editor, showReplace, onClose }: FindReplaceProps) 
           onClick={() => setCaseSensitive((c) => !c)}
           className={`markd-find-btn ${caseSensitive ? "active" : ""}`}
           title="Case Sensitive"
+          aria-pressed={caseSensitive}
         >
           Aa
+        </button>
+        <button
+          onClick={() => setUseRegex((r) => !r)}
+          className={`markd-find-btn ${useRegex ? "active" : ""}`}
+          title="Regular Expression"
+          aria-label="Regular expression toggle"
+          aria-pressed={useRegex}
+        >
+          .*
+        </button>
+        <button
+          onClick={() => setWholeWord((w) => !w)}
+          className={`markd-find-btn ${wholeWord ? "active" : ""}`}
+          title="Whole Word (ASCII boundaries)"
+          aria-label="Whole word toggle"
+          aria-pressed={wholeWord}
+        >
+          W
         </button>
         <button onClick={handlePrevious} className="markd-find-btn" title="Previous (Shift+Enter)">
           &#x25B2;

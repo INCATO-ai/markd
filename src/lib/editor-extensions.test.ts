@@ -36,4 +36,10 @@ describe("getExtensions", () => {
     const names = extensions.map((ext) => ext.name);
     expect(names).toContain("placeholder");
   });
+
+  it("includes section commands extension", () => {
+    const extensions = getExtensions({ getFileDir: () => "" });
+    const names = extensions.map((ext) => ext.name);
+    expect(names).toContain("sectionCommands");
+  });
 });

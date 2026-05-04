@@ -144,6 +144,119 @@ body {
   min-width: 0;
 }
 
+/* Tab bar */
+.markd-tab-bar {
+  display: flex;
+  align-items: center;
+  background: var(--bg-color);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  height: 35px;
+  padding: 0 4px;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.markd-tab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.markd-tab-list {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.markd-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--control-text-color);
+  white-space: nowrap;
+  max-width: 200px;
+  flex-shrink: 0;
+  user-select: none;
+  border-bottom: 2px solid transparent;
+}
+
+.markd-tab:hover {
+  background: var(--item-hover-bg-color);
+  color: var(--item-hover-text-color, var(--text-color));
+}
+
+.markd-tab.active {
+  color: var(--text-color);
+  background: var(--item-hover-bg-color);
+  border-bottom-color: var(--primary-color);
+  font-weight: 500;
+}
+
+.markd-tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.markd-tab-dir {
+  opacity: 0.5;
+  font-size: 11px;
+}
+
+.markd-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  opacity: 0;
+  flex-shrink: 0;
+}
+
+.markd-tab:hover .markd-tab-close {
+  opacity: 1;
+}
+
+.markd-tab-close:hover {
+  background: var(--border-color);
+  color: var(--text-color);
+}
+
+.markd-tab-new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.markd-tab-new:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
 /* Topbar (sidebar toggle + toolbar) */
 .markd-topbar {
   display: flex;
@@ -292,6 +405,17 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+}
+
+.markd-toolbar button .markd-hotkey-hint {
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  padding: 0 3px;
+  white-space: nowrap;
 }
 
 .markd-toolbar button:hover {
@@ -360,6 +484,12 @@ body {
 #write p {
   margin-bottom: 0.8em;
   word-wrap: break-word;
+}
+
+/* Prevent bold text from visually merging with the next word when the
+   markdown source has no space after the closing ** (e.g. **bold**Next). */
+#write strong {
+  padding-right: 0.1em;
 }
 
 #write a {
@@ -550,6 +680,36 @@ body {
   background: var(--item-hover-bg-color);
 }
 
+.markd-hotkey-hint {
+  margin-left: 6px;
+  font-size: 10px;
+  opacity: 0.6;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-family: monospace;
+}
+
+.markd-sidebar-filepath {
+  padding: 2px 12px 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.markd-file-path-hint {
+  display: block;
+  font-size: 10px;
+  opacity: 0.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Outline Panel */
 .markd-outline {
   padding: 4px 0;
@@ -571,6 +731,22 @@ body {
 .markd-outline-item:hover {
   background: var(--item-hover-bg-color);
   color: var(--item-hover-text-color);
+}
+
+.markd-outline-item.active {
+  background: var(--active-file-bg-color);
+  color: var(--active-file-text-color);
+  border-left: 2px solid var(--primary-color);
+  transition: background 0.15s ease;
+}
+
+.markd-outline-item.dragging {
+  opacity: 0.6;
+}
+
+.markd-outline-item.drag-over {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
 }
 
 .markd-outline-level {
@@ -619,6 +795,11 @@ body {
 .focus-mode #write > .focus-active {
   opacity: 1;
   transition: opacity 0.2s ease;
+}
+
+.markd-version {
+  opacity: 0.7;
+  font-size: 11px;
 }
 
 /* Status bar active button */
@@ -684,7 +865,7 @@ body {
   flex-direction: column;
   gap: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  min-width: 340px;
+  min-width: 420px;
 }
 
 .markd-find-row {
@@ -707,6 +888,14 @@ body {
 
 .markd-find-input:focus {
   border-color: var(--primary-color);
+}
+
+.markd-find-input-error {
+  border-color: #e53e3e;
+}
+
+.markd-find-input-error:focus {
+  border-color: #e53e3e;
 }
 
 .markd-find-count {
@@ -747,6 +936,16 @@ body {
 .markd-search-current {
   background: rgba(255, 165, 0, 0.6);
   outline: 2px solid rgba(255, 140, 0, 0.8);
+}
+
+#write pre .markd-search-highlight,
+#write pre .markd-search-current {
+  position: relative;
+  background-color: rgba(255, 215, 0, 0.5);
+}
+
+#write pre .markd-search-current {
+  background-color: rgba(255, 165, 0, 0.75);
 }
 
 /* Source Editor */
