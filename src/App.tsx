@@ -292,11 +292,16 @@ export function App() {
       const tab = fileTabs.tabs.find((t) => t.id === tabId);
       if (tab && tab.isDirty) {
         const shouldSave = window.confirm(
-          `"${tab.fileName}" has unsaved changes. Save before closing?`,
+          `"${tab.fileName}" has unsaved changes.\n\nSave before closing?`,
         );
         if (shouldSave) {
           const saved = await fileState.handleSave();
           if (!saved) return;
+        } else {
+          const discard = window.confirm(
+            `Discard changes to "${tab.fileName}"?`,
+          );
+          if (!discard) return;
         }
       }
       const { switchTo } = fileTabs.closeTab(tabId);
@@ -502,7 +507,8 @@ export function App() {
     fileTabs.activeTabId,
   ]);
 
-  // Show modifier-specific hotkey hints while Ctrl or Alt is held
+  // Show modifier-specific hotkey hints while Ctrl or Alt is held.
+  // Uses capture phase so hints show regardless of which element has focus.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === "Control" && !e.repeat) setHeldModifier("ctrl");
@@ -512,12 +518,12 @@ export function App() {
       if (e.key === "Control" || e.key === "Alt") setHeldModifier(null);
     };
     const blur = () => setHeldModifier(null);
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
+    window.addEventListener("keydown", down, true);
+    window.addEventListener("keyup", up, true);
     window.addEventListener("blur", blur);
     return () => {
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
+      window.removeEventListener("keydown", down, true);
+      window.removeEventListener("keyup", up, true);
       window.removeEventListener("blur", blur);
     };
   }, []);
@@ -529,6 +535,55 @@ export function App() {
     window.addEventListener("markd:search-term", handler);
     return () => window.removeEventListener("markd:search-term", handler);
   }, []);
+
+  // Detect external file modifications on the active tab (poll mtime every 2s)
+  const lastMtimeRef = useRef<number | null>(null);
+  const fileChangePromptOpen = useRef(false);
+  useEffect(() => {
+    const filePath = fileState.filePath;
+    if (!isTauri() || !filePath) {
+      lastMtimeRef.current = null;
+      return;
+    }
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval>;
+
+    (async () => {
+      try {
+        const { stat } = await import("@tauri-apps/plugin-fs");
+        const info = await stat(filePath);
+        if (cancelled) return;
+        lastMtimeRef.current = info.mtime?.getTime() ?? null;
+
+        timer = setInterval(async () => {
+          if (cancelled || fileChangePromptOpen.current) return;
+          try {
+            const current = await stat(filePath);
+            const currentMtime = current.mtime?.getTime() ?? null;
+            if (lastMtimeRef.current && currentMtime && currentMtime > lastMtimeRef.current) {
+              lastMtimeRef.current = currentMtime;
+              fileChangePromptOpen.current = true;
+              const reload = window.confirm(
+                `"${fileState.fileName}" has been modified outside Markd.\n\nReload from disk?`,
+              );
+              fileChangePromptOpen.current = false;
+              if (reload) {
+                const content = await readFileByPath(filePath);
+                fileTabsRef.current.hydrateTab(fileTabsRef.current.activeTabId, content);
+                fileStateRef.current.handleOpenByPath(filePath, content);
+              }
+            }
+          } catch { /* file may have been deleted */ }
+        }, 2000);
+      } catch { /* stat not available */ }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (timer!) clearInterval(timer);
+    };
+  }, [fileState.filePath, fileState.fileName]);
 
   const handleFileSelectWithTabs = useCallback(
     async (entry: { kind: string; name: string; path: string }) => {
