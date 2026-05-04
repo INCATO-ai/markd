@@ -15,7 +15,7 @@ interface SidebarProps {
   recentFiles: RecentFile[];
   activeTab: SidebarTab;
   onTabChange: (tab: SidebarTab) => void;
-  showHotkeyHints: boolean;
+  heldModifier: "ctrl" | "alt" | null;
   onFileSelect: (entry: FileEntry) => void;
   onOpenFolder: () => void;
   onToggle: () => void;
@@ -31,7 +31,7 @@ export function Sidebar({
   recentFiles,
   activeTab,
   onTabChange,
-  showHotkeyHints,
+  heldModifier,
   onFileSelect,
   onOpenFolder,
   onToggle,
@@ -46,14 +46,14 @@ export function Sidebar({
             onClick={() => onTabChange("files")}
           >
             Files
-            {showHotkeyHints && <span className="markd-hotkey-hint">Alt+1</span>}
+            {heldModifier === "alt" && <span className="markd-hotkey-hint">Alt+1</span>}
           </button>
           <button
             className={`markd-sidebar-tab ${activeTab === "outline" ? "active" : ""}`}
             onClick={() => onTabChange("outline")}
           >
             Outline
-            {showHotkeyHints && <span className="markd-hotkey-hint">Alt+2</span>}
+            {heldModifier === "alt" && <span className="markd-hotkey-hint">Alt+2</span>}
           </button>
         </div>
         <div className="markd-sidebar-actions">

@@ -405,6 +405,17 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+}
+
+.markd-toolbar button .markd-hotkey-hint {
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  padding: 0 3px;
+  white-space: nowrap;
 }
 
 .markd-toolbar button:hover {

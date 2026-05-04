@@ -3,10 +3,12 @@ import type { Editor } from "@tiptap/react";
 
 interface ToolbarProps {
   editor: Editor | null;
+  heldModifier: "ctrl" | "alt" | null;
 }
 
 interface ToolbarButton {
   label: string;
+  shortcut?: string;
   icon: ReactNode;
   action: (editor: Editor) => void;
   isActive?: (editor: Editor) => boolean;
@@ -115,24 +117,28 @@ const HorizontalRuleIcon = () => (
 const BUTTONS: (ToolbarButton | "separator")[] = [
   {
     label: "Bold",
+    shortcut: "B",
     icon: <BoldIcon />,
     action: (e) => e.chain().focus().toggleBold().run(),
     isActive: (e) => e.isActive("bold"),
   },
   {
     label: "Italic",
+    shortcut: "I",
     icon: <ItalicIcon />,
     action: (e) => e.chain().focus().toggleItalic().run(),
     isActive: (e) => e.isActive("italic"),
   },
   {
     label: "Strikethrough",
+    shortcut: "⇧X",
     icon: <StrikethroughIcon />,
     action: (e) => e.chain().focus().toggleStrike().run(),
     isActive: (e) => e.isActive("strike"),
   },
   {
     label: "Code",
+    shortcut: "E",
     icon: <CodeIcon />,
     action: (e) => e.chain().focus().toggleCode().run(),
     isActive: (e) => e.isActive("code"),
@@ -140,18 +146,21 @@ const BUTTONS: (ToolbarButton | "separator")[] = [
   "separator",
   {
     label: "Heading 1",
+    shortcut: "⌥1",
     icon: <H1Icon />,
     action: (e) => e.chain().focus().toggleHeading({ level: 1 }).run(),
     isActive: (e) => e.isActive("heading", { level: 1 }),
   },
   {
     label: "Heading 2",
+    shortcut: "⌥2",
     icon: <H2Icon />,
     action: (e) => e.chain().focus().toggleHeading({ level: 2 }).run(),
     isActive: (e) => e.isActive("heading", { level: 2 }),
   },
   {
     label: "Heading 3",
+    shortcut: "⌥3",
     icon: <H3Icon />,
     action: (e) => e.chain().focus().toggleHeading({ level: 3 }).run(),
     isActive: (e) => e.isActive("heading", { level: 3 }),
@@ -159,18 +168,21 @@ const BUTTONS: (ToolbarButton | "separator")[] = [
   "separator",
   {
     label: "Bullet List",
+    shortcut: "⇧8",
     icon: <BulletListIcon />,
     action: (e) => e.chain().focus().toggleBulletList().run(),
     isActive: (e) => e.isActive("bulletList"),
   },
   {
     label: "Ordered List",
+    shortcut: "⇧7",
     icon: <OrderedListIcon />,
     action: (e) => e.chain().focus().toggleOrderedList().run(),
     isActive: (e) => e.isActive("orderedList"),
   },
   {
     label: "Task List",
+    shortcut: "⇧9",
     icon: <TaskListIcon />,
     action: (e) => e.chain().focus().toggleTaskList().run(),
     isActive: (e) => e.isActive("taskList"),
@@ -178,12 +190,14 @@ const BUTTONS: (ToolbarButton | "separator")[] = [
   "separator",
   {
     label: "Blockquote",
+    shortcut: "⇧B",
     icon: <BlockquoteIcon />,
     action: (e) => e.chain().focus().toggleBlockquote().run(),
     isActive: (e) => e.isActive("blockquote"),
   },
   {
     label: "Code Block",
+    shortcut: "⌥C",
     icon: <CodeBlockIcon />,
     action: (e) => e.chain().focus().toggleCodeBlock().run(),
     isActive: (e) => e.isActive("codeBlock"),
@@ -195,7 +209,7 @@ const BUTTONS: (ToolbarButton | "separator")[] = [
   },
 ];
 
-export function Toolbar({ editor }: ToolbarProps) {
+export function Toolbar({ editor, heldModifier }: ToolbarProps) {
   const handleClick = useCallback(
     (btn: ToolbarButton) => {
       if (editor) btn.action(editor);
@@ -220,6 +234,9 @@ export function Toolbar({ editor }: ToolbarProps) {
             onClick={() => handleClick(btn)}
           >
             {btn.icon}
+            {heldModifier === "ctrl" && btn.shortcut && (
+              <span className="markd-hotkey-hint">{btn.shortcut}</span>
+            )}
           </button>
         );
       })}

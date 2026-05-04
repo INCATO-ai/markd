@@ -27,7 +27,7 @@ function isTauri(): boolean {
 export function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<"files" | "outline">("outline");
-  const [showHotkeyHints, setShowHotkeyHints] = useState(false);
+  const [heldModifier, setHeldModifier] = useState<"ctrl" | "alt" | null>(null);
   const [findReplaceOpen, setFindReplaceOpen] = useState(false);
   const [findReplaceShowReplace, setFindReplaceShowReplace] = useState(false);
   const lastSearchTermRef = useRef("");
@@ -502,19 +502,16 @@ export function App() {
     fileTabs.activeTabId,
   ]);
 
-  // Show hotkey hints while Ctrl or Alt is held
+  // Show modifier-specific hotkey hints while Ctrl or Alt is held
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if ((e.key === "Control" || e.key === "Alt") && !e.repeat) {
-        setShowHotkeyHints(true);
-      }
+      if (e.key === "Control" && !e.repeat) setHeldModifier("ctrl");
+      else if (e.key === "Alt" && !e.repeat) setHeldModifier("alt");
     };
     const up = (e: KeyboardEvent) => {
-      if (e.key === "Control" || e.key === "Alt") {
-        setShowHotkeyHints(false);
-      }
+      if (e.key === "Control" || e.key === "Alt") setHeldModifier(null);
     };
-    const blur = () => setShowHotkeyHints(false);
+    const blur = () => setHeldModifier(null);
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
     window.addEventListener("blur", blur);
@@ -584,7 +581,7 @@ export function App() {
         recentFiles={recentFiles}
         activeTab={sidebarTab}
         onTabChange={setSidebarTab}
-        showHotkeyHints={showHotkeyHints}
+        heldModifier={heldModifier}
         onFileSelect={handleFileSelectWithTabs}
         onOpenFolder={fileState.handleOpenFolder}
         onToggle={() => setSidebarCollapsed((c) => !c)}
@@ -644,7 +641,7 @@ export function App() {
               </svg>
             </button>
           )}
-          <Toolbar editor={editor} />
+          <Toolbar editor={editor} heldModifier={heldModifier} />
         </div>
         <div className="markd-editor-content">
           {findReplaceOpen && (
