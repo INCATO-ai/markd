@@ -587,6 +587,39 @@ export function App() {
     };
   }, [fileState.filePath, fileState.fileName]);
 
+  // Auto-update check (startup-only, debounced to 1 hour)
+  useEffect(() => {
+    if (!isTauri()) return;
+    let cancelled = false;
+
+    (async () => {
+      const lastCheck = localStorage.getItem("markd-update-check");
+      if (lastCheck && Date.now() - Number(lastCheck) < 3600000) return;
+
+      const { check } = await import("@tauri-apps/plugin-updater");
+      const { ask, message } = await import("@tauri-apps/plugin-dialog");
+      if (cancelled) return;
+
+      const update = await check();
+      localStorage.setItem("markd-update-check", String(Date.now()));
+      if (!update) return;
+
+      const shouldUpdate = await ask(
+        `Markd ${update.version} is available.\nThe app will close to install and reopen automatically.`,
+        { title: "Update Available", kind: "info" },
+      );
+      if (!shouldUpdate) return;
+
+      try {
+        await update.downloadAndInstall();
+      } catch (err) {
+        await message(`Update failed: ${err}`, { title: "Update Error", kind: "error" });
+      }
+    })().catch(console.error);
+
+    return () => { cancelled = true; };
+  }, []);
+
   const handleFileSelectWithTabs = useCallback(
     async (entry: { kind: string; name: string; path: string }) => {
       if (entry.kind !== "file") return;
