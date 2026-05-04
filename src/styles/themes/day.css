@@ -1,5 +1,5 @@
-/* Markd Default Theme */
-[data-theme="markd"] {
+/* Day Theme — light mode */
+[data-theme="day"] {
   /* Core */
   --bg-color: #ffffff;
   --text-color: #1a1a2e;

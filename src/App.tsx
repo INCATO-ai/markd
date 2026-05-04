@@ -16,7 +16,7 @@ import { useRecentFiles } from "@/hooks/use-recent-files";
 import { useFullWidth } from "@/hooks/use-full-width";
 import { useFileTabs } from "@/hooks/use-file-tabs";
 import { TabBar } from "@/components/TabBar";
-import { exportAsHtml, exportAsPdf } from "@/lib/file-system";
+import { exportAsHtml, exportAsPdf, readFileByPath } from "@/lib/file-system";
 
 function isTauri(): boolean {
   // Tauri v2 exposes the IPC bridge as __TAURI_INTERNALS__ by default;
@@ -116,6 +116,53 @@ export function App() {
         fileStateRef.current.handleOpenByPath(file.path, file.content);
       } catch {
         // Not in Tauri or no file argument
+      }
+    })();
+  }, [editor]);
+
+  // Hydrate persisted tabs from disk — runs once after editor mounts.
+  // Tabs restored from localStorage have filePath but empty content.
+  const hydrationDone = useRef(false);
+  useEffect(() => {
+    if (!isTauri() || !editor || hydrationDone.current) return;
+    hydrationDone.current = true;
+
+    (async () => {
+      const ft = fileTabsRef.current;
+      const fs = fileStateRef.current;
+      const tabs = ft.tabs;
+      const activeId = ft.activeTabId;
+
+      // Only hydrate tabs that have a path but no content (restored from localStorage)
+      const needsHydration = tabs.filter((t) => t.filePath && t.content === "");
+      if (needsHydration.length === 0) return;
+
+      // Hydrate active tab first for fast perceived load
+      const activeTab = needsHydration.find((t) => t.id === activeId);
+      if (activeTab && activeTab.filePath) {
+        try {
+          const content = await readFileByPath(activeTab.filePath);
+          ft.openInTab(activeTab.fileName, activeTab.filePath, content);
+          fs.handleOpenByPath(activeTab.filePath, content);
+          requestAnimationFrame(() => {
+            const el = document.querySelector(".markd-editor-scroll") as HTMLElement | null;
+            if (el) el.scrollTop = activeTab.scrollTop;
+          });
+        } catch {
+          // File no longer exists — tab will be dropped by closeTab on next interaction
+        }
+      }
+
+      // Hydrate remaining tabs in background (content stored in tab state for switching)
+      for (const tab of needsHydration) {
+        if (tab.id === activeId) continue;
+        if (!tab.filePath) continue;
+        try {
+          const content = await readFileByPath(tab.filePath);
+          ft.openInTab(tab.fileName, tab.filePath, content);
+        } catch {
+          ft.closeTab(tab.id);
+        }
       }
     })();
   }, [editor]);
@@ -221,8 +268,16 @@ export function App() {
 
   const handleSwitchTab = useCallback(
     (tabId: string) => {
-      const target = fileTabs.switchTab(tabId);
-      if (target) fileState.restoreState(target);
+      const scrollEl = document.querySelector(".markd-editor-scroll") as HTMLElement | null;
+      const departingScroll = scrollEl?.scrollTop ?? 0;
+      const target = fileTabs.switchTab(tabId, departingScroll);
+      if (target) {
+        fileState.restoreState(target);
+        requestAnimationFrame(() => {
+          const el = document.querySelector(".markd-editor-scroll") as HTMLElement | null;
+          if (el) el.scrollTop = target.scrollTop;
+        });
+      }
     },
     [fileTabs.switchTab, fileState.restoreState],
   );
@@ -240,7 +295,13 @@ export function App() {
         }
       }
       const { switchTo } = fileTabs.closeTab(tabId);
-      if (switchTo) fileState.restoreState(switchTo);
+      if (switchTo) {
+        fileState.restoreState(switchTo);
+        requestAnimationFrame(() => {
+          const el = document.querySelector(".markd-editor-scroll") as HTMLElement | null;
+          if (el) el.scrollTop = switchTo.scrollTop;
+        });
+      }
     },
     [fileTabs.tabs, fileTabs.closeTab, fileState.handleSave, fileState.restoreState],
   );
@@ -248,6 +309,10 @@ export function App() {
   const handleNewTab = useCallback(() => {
     fileTabs.newTab();
     fileState.handleNew();
+    requestAnimationFrame(() => {
+      const el = document.querySelector(".markd-editor-scroll") as HTMLElement | null;
+      if (el) el.scrollTop = 0;
+    });
   }, [fileTabs.newTab, fileState.handleNew]);
 
   const cycleTab = useCallback(

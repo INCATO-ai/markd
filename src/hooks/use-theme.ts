@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 
 export const THEMES = [
-  { id: "markd", name: "Markd" },
+  { id: "day", name: "Day" },
   { id: "night", name: "Night" },
 ] as const;
 
@@ -11,8 +11,10 @@ const STORAGE_KEY = "markd-theme";
 
 function getInitialTheme(): ThemeId {
   const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored && THEMES.some((t) => t.id === stored)) return stored as ThemeId;
-  return "markd";
+  const migrated = stored === "markd" ? "day" : stored;
+  if (migrated !== stored && stored !== null) localStorage.setItem(STORAGE_KEY, migrated!);
+  if (migrated && THEMES.some((t) => t.id === migrated)) return migrated as ThemeId;
+  return "day";
 }
 
 export function useTheme() {

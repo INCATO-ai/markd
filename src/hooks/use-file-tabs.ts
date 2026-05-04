@@ -7,6 +7,29 @@ export interface FileTab {
   content: string;
   isDirty: boolean;
   savedContent: string;
+  scrollTop: number;
+}
+
+interface PersistedTab {
+  id: string;
+  fileName: string;
+  filePath: string;
+  scrollTop: number;
+  isDirty: boolean;
+}
+
+interface PersistedState {
+  tabs: PersistedTab[];
+  activeTabId: string;
+}
+
+const STORAGE_KEY = "markd-tabs";
+
+const VALID_EXTENSIONS = [".md", ".markdown", ".mdx", ".txt"];
+
+function isValidPath(filePath: string): boolean {
+  const lower = filePath.toLowerCase();
+  return VALID_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
 function createTab(overrides?: Partial<FileTab>): FileTab {
@@ -17,13 +40,70 @@ function createTab(overrides?: Partial<FileTab>): FileTab {
     content: "",
     isDirty: false,
     savedContent: "",
+    scrollTop: 0,
     ...overrides,
   };
 }
 
+function loadPersistedTabs(): { tabs: FileTab[]; activeTabId: string } | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: PersistedState = JSON.parse(raw);
+    if (!Array.isArray(parsed.tabs) || parsed.tabs.length === 0) return null;
+    const validTabs = parsed.tabs.filter(
+      (t) => t.filePath && isValidPath(t.filePath),
+    );
+    if (validTabs.length === 0) return null;
+    const tabs: FileTab[] = validTabs.map((t) => createTab({
+      id: t.id,
+      fileName: t.fileName,
+      filePath: t.filePath,
+      scrollTop: t.scrollTop ?? 0,
+      isDirty: false,
+      savedContent: "",
+    }));
+    const activeTabId = tabs.some((t) => t.id === parsed.activeTabId)
+      ? parsed.activeTabId
+      : tabs[0]!.id;
+    return { tabs, activeTabId };
+  } catch {
+    return null;
+  }
+}
+
+function persistTabs(tabs: FileTab[], activeTabId: string): void {
+  const persistable = tabs.filter((t) => t.filePath && isValidPath(t.filePath));
+  if (persistable.length === 0) {
+    localStorage.removeItem(STORAGE_KEY);
+    return;
+  }
+  const state: PersistedState = {
+    tabs: persistable.map((t) => ({
+      id: t.id,
+      fileName: t.fileName,
+      filePath: t.filePath!,
+      scrollTop: t.scrollTop,
+      isDirty: t.isDirty,
+    })),
+    activeTabId,
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // QuotaExceededError — metadata-only payload should never hit this, but guard anyway
+  }
+}
+
 export function useFileTabs() {
-  const [tabs, setTabs] = useState<FileTab[]>(() => [createTab()]);
-  const [activeTabId, setActiveTabId] = useState(() => tabs[0]!.id);
+  const [tabs, setTabs] = useState<FileTab[]>(() => {
+    const restored = loadPersistedTabs();
+    return restored ? restored.tabs : [createTab()];
+  });
+  const [activeTabId, setActiveTabId] = useState(() => {
+    const restored = loadPersistedTabs();
+    return restored ? restored.activeTabId : tabs[0]!.id;
+  });
   const getMarkdownRef = useRef<(() => string) | null>(null);
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
@@ -49,13 +129,20 @@ export function useFileTabs() {
   }, []);
 
   const switchTab = useCallback(
-    (tabId: string) => {
+    (tabId: string, departingScrollTop?: number) => {
       if (tabId === activeTabIdRef.current) return null;
       const md = getMarkdownRef.current?.() ?? "";
       const prevId = activeTabIdRef.current;
-      setTabs((prev) =>
-        prev.map((t) => (t.id === prevId ? { ...t, content: md } : t)),
-      );
+      setTabs((prev) => {
+        const updated = prev.map((t) =>
+          t.id === prevId
+            ? { ...t, content: md, scrollTop: departingScrollTop ?? t.scrollTop }
+            : t,
+        );
+        // Persist after structural mutation (schedule via microtask to read final state)
+        queueMicrotask(() => persistTabs(updated, tabId));
+        return updated;
+      });
       setActiveTabId(tabId);
       const target = tabsRef.current.find((t) => t.id === tabId);
       return target ?? null;
@@ -77,6 +164,7 @@ export function useFileTabs() {
         : null;
       if (existing) {
         setActiveTabId(existing.id);
+        queueMicrotask(() => persistTabs(currentTabs, existing.id));
         return { tab: existing, isNew: false };
       }
       const currentTab = currentTabs.find((t) => t.id === currentId);
@@ -94,10 +182,13 @@ export function useFileTabs() {
           content,
           isDirty: false,
           savedContent: content,
+          scrollTop: 0,
         };
-        setTabs((prev) =>
-          prev.map((t) => (t.id === currentTab.id ? updated : t)),
+        const newTabs = currentTabs.map((t) =>
+          t.id === currentTab.id ? updated : t,
         );
+        setTabs(newTabs);
+        queueMicrotask(() => persistTabs(newTabs, currentTab.id));
         return { tab: updated, isNew: false };
       }
       const tab = createTab({
@@ -106,8 +197,10 @@ export function useFileTabs() {
         content,
         savedContent: content,
       });
-      setTabs((prev) => [...prev, tab]);
+      const newTabs = [...currentTabs, tab];
+      setTabs(newTabs);
       setActiveTabId(tab.id);
+      queueMicrotask(() => persistTabs(newTabs, tab.id));
       return { tab, isNew: true };
     },
     [snapshotActiveTab],
@@ -116,8 +209,11 @@ export function useFileTabs() {
   const newTab = useCallback((): FileTab => {
     snapshotActiveTab();
     const tab = createTab();
-    setTabs((prev) => [...prev, tab]);
+    const currentTabs = tabsRef.current;
+    const newTabs = [...currentTabs, tab];
+    setTabs(newTabs);
     setActiveTabId(tab.id);
+    queueMicrotask(() => persistTabs(newTabs, tab.id));
     return tab;
   }, [snapshotActiveTab]);
 
@@ -128,6 +224,7 @@ export function useFileTabs() {
         const fresh = createTab();
         setTabs([fresh]);
         setActiveTabId(fresh.id);
+        queueMicrotask(() => persistTabs([fresh], fresh.id));
         return { switchTo: fresh };
       }
       const idx = currentTabs.findIndex((t) => t.id === tabId);
@@ -137,9 +234,11 @@ export function useFileTabs() {
         const next = remaining[nextIdx]!;
         setActiveTabId(next.id);
         setTabs(remaining);
+        queueMicrotask(() => persistTabs(remaining, next.id));
         return { switchTo: next };
       }
       setTabs(remaining);
+      queueMicrotask(() => persistTabs(remaining, activeTabIdRef.current));
       return { switchTo: null };
     },
     [],
@@ -164,8 +263,8 @@ export function useFileTabs() {
         savedContent: string;
       },
     ) => {
-      setTabs((prev) =>
-        prev.map((t) =>
+      setTabs((prev) => {
+        const updated = prev.map((t) =>
           t.id === tabId
             ? {
                 ...t,
@@ -179,8 +278,11 @@ export function useFileTabs() {
                   : {}),
               }
             : t,
-        ),
-      );
+        );
+        // Persist after save — filePath may have changed (Save As)
+        queueMicrotask(() => persistTabs(updated, activeTabIdRef.current));
+        return updated;
+      });
     },
     [],
   );
