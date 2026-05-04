@@ -8,12 +8,14 @@ interface StatusBarProps {
   sourceMode: boolean;
   focusMode: boolean;
   fullWidth: boolean;
+  lineNumbers: boolean;
   onThemeChange: () => void;
   onExportHtml: () => void;
   onExportPdf: () => void;
   onToggleSource: () => void;
   onToggleFocusMode: () => void;
   onToggleFullWidth: () => void;
+  onToggleLineNumbers: () => void;
 }
 
 export function StatusBar({
@@ -23,11 +25,13 @@ export function StatusBar({
   lastSaved,
   sourceMode,
   fullWidth,
+  lineNumbers,
   onThemeChange,
   onExportHtml,
   onExportPdf,
   onToggleSource,
   onToggleFullWidth,
+  onToggleLineNumbers,
 }: StatusBarProps) {
   const [stats, setStats] = useState({ words: 0, chars: 0 });
   const [showSaved, setShowSaved] = useState(false);
@@ -72,6 +76,14 @@ export function StatusBar({
           title="Toggle Full Width"
         >
           {fullWidth ? "Column" : "Full"}
+        </button>
+        <button
+          onClick={onToggleLineNumbers}
+          style={btnStyle}
+          className={lineNumbers ? "status-btn-active" : ""}
+          title="Toggle Line Numbers"
+        >
+          {lineNumbers ? "Lines" : "No Lines"}
         </button>
         <button onClick={onExportHtml} style={btnStyle}>
           HTML

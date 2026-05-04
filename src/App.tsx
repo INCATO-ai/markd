@@ -14,6 +14,7 @@ import { SourceEditor } from "@/components/SourceEditor";
 import { ContextMenu } from "@/components/ContextMenu";
 import { useRecentFiles } from "@/hooks/use-recent-files";
 import { useFullWidth } from "@/hooks/use-full-width";
+import { useLineNumbers } from "@/hooks/use-line-numbers";
 import { useFileTabs } from "@/hooks/use-file-tabs";
 import { TabBar } from "@/components/TabBar";
 import { exportAsHtml, exportAsPdf, readFileByPath, saveToFile } from "@/lib/file-system";
@@ -36,6 +37,7 @@ export function App() {
   const [focusMode, setFocusMode] = useState(false);
   const { activeTheme, switchTheme, themes } = useTheme();
   const { fullWidth, toggleFullWidth } = useFullWidth();
+  const { lineNumbers, toggleLineNumbers } = useLineNumbers();
   const fileState = useFileState();
   const { recentFiles, addRecentFile } = useRecentFiles();
   const fileTabs = useFileTabs();
@@ -710,6 +712,7 @@ export function App() {
             <SourceEditor
               markdown={sourceMarkdown}
               onMarkdownChange={handleSourceMarkdownChange}
+              lineNumbers={lineNumbers}
             />
           ) : (
             <Editor
@@ -733,6 +736,8 @@ export function App() {
           onToggleSource={handleToggleSource}
           onToggleFocusMode={() => setFocusMode((f) => !f)}
           onToggleFullWidth={toggleFullWidth}
+          lineNumbers={lineNumbers}
+          onToggleLineNumbers={toggleLineNumbers}
         />
       </div>
       <ContextMenu editor={editor} />
