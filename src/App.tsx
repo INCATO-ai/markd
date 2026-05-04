@@ -508,22 +508,22 @@ export function App() {
   ]);
 
   // Show modifier-specific hotkey hints while Ctrl or Alt is held.
-  // Uses capture phase so hints show regardless of which element has focus.
+  // Reads e.ctrlKey/e.altKey (physical state) instead of matching e.key,
+  // preventing desync when Windows menu bar activation swallows keyup.
   useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === "Control" && !e.repeat) setHeldModifier("ctrl");
-      else if (e.key === "Alt" && !e.repeat) setHeldModifier("alt");
-    };
-    const up = (e: KeyboardEvent) => {
-      if (e.key === "Control" || e.key === "Alt") setHeldModifier(null);
+    const sync = (e: KeyboardEvent) => {
+      if (e.key === "Alt") e.preventDefault();
+      if (e.ctrlKey && !e.altKey) setHeldModifier("ctrl");
+      else if (e.altKey && !e.ctrlKey) setHeldModifier("alt");
+      else setHeldModifier(null);
     };
     const blur = () => setHeldModifier(null);
-    window.addEventListener("keydown", down, true);
-    window.addEventListener("keyup", up, true);
+    window.addEventListener("keydown", sync, true);
+    window.addEventListener("keyup", sync, true);
     window.addEventListener("blur", blur);
     return () => {
-      window.removeEventListener("keydown", down, true);
-      window.removeEventListener("keyup", up, true);
+      window.removeEventListener("keydown", sync, true);
+      window.removeEventListener("keyup", sync, true);
       window.removeEventListener("blur", blur);
     };
   }, []);
