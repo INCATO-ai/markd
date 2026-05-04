@@ -15,20 +15,53 @@ Published publicly because it solves a real problem and a few people asked. If i
 - WYSIWYG rendered view with a keyboard-shortcut source-mode toggle (Ctrl+/)
 - File / Edit / View / Help menubar with native shortcuts
 - Multi-tab editing with middle-click close, dirty indicators, and Ctrl+T / Ctrl+W / Ctrl+Tab shortcuts
+- Tab session persistence — tabs and scroll position survive Ctrl+R refresh and app restarts
+- Per-tab scroll position remembered across tab switches
+- External file modification detection — prompts to reload when a file changes on disk
 - Recent files, folder-tree sidebar, outline panel with scroll-aware active heading highlight
 - Drag-to-reorder document sections from the outline sidebar (or keyboard Alt+Up/Down)
 - Find + replace (Ctrl+F / Ctrl+H) with regex, whole-word, and case-sensitive toggles
 - F3 / Shift+F3 to find next/previous without reopening the panel; Ctrl+F3 to select word and search
+- Ctrl+R to reload active tab from disk; Ctrl+Shift+R to reload all tabs; Ctrl+Shift+S to save all
+- Alt+1 / Alt+2 to switch sidebar between Files and Outline tabs
+- Hotkey hint ribbon — hold Ctrl to see toolbar shortcuts, hold Alt to see sidebar shortcuts
 - Auto-save every 30 seconds for named files
+- Line numbers (toggle via status bar) in both rendered and source modes
 - Window size and position remembered across restarts
-- Two themes (light, dark) — extendable via CSS custom properties
+- Two themes (Day, Night) — extendable via CSS custom properties
 - Syntax highlighting for fenced code blocks (via [lowlight](https://github.com/wooorm/lowlight))
 - Relative image paths resolve against the current file's directory — your markdown stays portable
 - Single-instance: opening a file while Markd is running opens it in a new tab
 - `.md` / `.markdown` / `.mdx` / `.txt` file associations on install
+- Full width toggle (Ctrl+Shift+F → status bar toggle) for the editor column
 - PDF export via print-to-file with chrome-less print stylesheet
 
-## Known issues
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| Ctrl+N | New file |
+| Ctrl+O | Open file |
+| Ctrl+S | Save |
+| Ctrl+Shift+S | Save all open tabs |
+| Ctrl+W | Close tab |
+| Ctrl+T | New tab |
+| Ctrl+Tab / Ctrl+Shift+Tab | Cycle tabs |
+| Ctrl+R | Reload active tab from disk |
+| Ctrl+Shift+R | Reload all tabs from disk |
+| Ctrl+/ | Toggle source mode |
+| Ctrl+\\ | Toggle sidebar |
+| Ctrl+F | Find |
+| Ctrl+H | Find and replace |
+| Ctrl+F3 | Find word at cursor |
+| F3 / Shift+F3 | Find next / previous |
+| Alt+1 | Sidebar: Files |
+| Alt+2 | Sidebar: Outline |
+| Alt+Up/Down | Reorder section (in outline) |
+| Hold Ctrl | Show toolbar shortcut hints |
+| Hold Alt | Show sidebar shortcut hints |
+
+## Known Issues
 
 - **Focus mode doesn't dim non-cursor blocks yet.** Typewriter scroll works. Details + investigation notes in the project's internal TODO.
 - UNC paths from WSL (`\\wsl.localhost\...`) work for opening markdown files and for the asset protocol that serves relative images, but they can be slow or flaky. Keep files on a local drive if you hit issues.
@@ -43,7 +76,7 @@ Grab the latest release from [Releases](../../releases):
 
 Or run the bare `markd.exe` without installation — it's portable.
 
-## Build from source
+## Build from Source
 
 Requirements: [Node.js 20+](https://nodejs.org), [pnpm 10+](https://pnpm.io), [Rust toolchain](https://rustup.rs), [Visual Studio Build Tools with C++ workload](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (Windows), [WebView2 runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) (usually already installed on Windows 10/11).
 
@@ -62,7 +95,7 @@ pnpm tauri dev
 
 ### Building from WSL
 
-If you're on WSL like I am, `pnpm tauri build` from ext4 fails because Node (WSL) invokes `cargo.exe` (Windows) and the tauri-cli mangles the returned UNC paths. Workaround: rsync the project to a Windows path first.
+If you're on WSL, `pnpm tauri build` from ext4 fails because Node (WSL) invokes `cargo.exe` (Windows) and the tauri-cli mangles the returned UNC paths. Workaround: rsync the project to a Windows path first.
 
 ```bash
 rsync -a --exclude=node_modules --exclude='src-tauri/target' --exclude=dist --exclude=.git . /mnt/c/temp/markd-build/
