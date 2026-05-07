@@ -276,11 +276,20 @@ export function App() {
   }, [fileState.isDirty]);
 
   const handleSwitchTab = useCallback(
-    (tabId: string) => {
+    async (tabId: string) => {
       const scrollEl = document.querySelector(".markd-editor-scroll") as HTMLElement | null;
       const departingScroll = scrollEl?.scrollTop ?? 0;
       const target = fileTabs.switchTab(tabId, departingScroll);
       if (target) {
+        // Re-read from disk if tab content is empty (not yet hydrated)
+        if (!target.content && target.filePath) {
+          try {
+            const content = await readFileByPath(target.filePath);
+            fileTabs.hydrateTab(target.id, content);
+            target.content = content;
+            target.savedContent = content;
+          } catch { /* file gone */ }
+        }
         fileState.restoreState(target);
         requestAnimationFrame(() => {
           const el = document.querySelector(".markd-editor-scroll") as HTMLElement | null;
@@ -288,7 +297,7 @@ export function App() {
         });
       }
     },
-    [fileTabs.switchTab, fileState.restoreState],
+    [fileTabs.switchTab, fileTabs.hydrateTab, fileState.restoreState],
   );
 
   const handleCloseTab = useCallback(
@@ -310,6 +319,15 @@ export function App() {
       }
       const { switchTo } = fileTabs.closeTab(tabId);
       if (switchTo) {
+        // Re-read from disk if tab content is empty (not yet hydrated from localStorage restore)
+        if (!switchTo.content && switchTo.filePath) {
+          try {
+            const content = await readFileByPath(switchTo.filePath);
+            fileTabs.hydrateTab(switchTo.id, content);
+            switchTo.content = content;
+            switchTo.savedContent = content;
+          } catch { /* file gone */ }
+        }
         fileState.restoreState(switchTo);
         requestAnimationFrame(() => {
           const el = document.querySelector(".markd-editor-scroll") as HTMLElement | null;
@@ -317,8 +335,8 @@ export function App() {
         });
       }
     },
-    [fileTabs.tabs, fileTabs.closeTab, fileState.handleSave, fileState.restoreState],
-  );
+    [fileTabs.tabs, fileTabs.closeTab, fileTabs.hydrateTab, fileState.handleSave, fileState.restoreState],
+  );;
 
   const handleCloseAllTabs = useCallback(async () => {
     const dirtyTabs = fileTabs.tabs.filter((t) => t.isDirty);
