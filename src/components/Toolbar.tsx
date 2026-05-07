@@ -14,6 +14,16 @@ interface ToolbarButton {
   isActive?: (editor: Editor) => boolean;
 }
 
+// Shortcut field uses compact symbols (⇧=Shift, ⌥=Alt). Expand for native tooltip display.
+function formatTitle(label: string, shortcut?: string): string {
+  if (!shortcut) return label;
+  let combo: string;
+  if (shortcut.startsWith("⌥")) combo = `Alt+${shortcut.slice(1)}`;
+  else if (shortcut.startsWith("⇧")) combo = `Ctrl+Shift+${shortcut.slice(1)}`;
+  else combo = `Ctrl+${shortcut}`;
+  return `${label} (${combo})`;
+}
+
 /* ── SVG Icons (16x16, currentColor) ─────────────────────────────── */
 
 const BoldIcon = () => (
@@ -229,7 +239,7 @@ export function Toolbar({ editor, heldModifier }: ToolbarProps) {
         return (
           <button
             key={btn.label}
-            title={btn.label}
+            title={formatTitle(btn.label, btn.shortcut)}
             className={active ? "active" : ""}
             onClick={() => handleClick(btn)}
           >

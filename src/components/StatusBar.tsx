@@ -16,6 +16,7 @@ interface StatusBarProps {
   onToggleFocusMode: () => void;
   onToggleFullWidth: () => void;
   onToggleLineNumbers: () => void;
+  zoom: number;
 }
 
 export function StatusBar({
@@ -32,6 +33,7 @@ export function StatusBar({
   onToggleSource,
   onToggleFullWidth,
   onToggleLineNumbers,
+  zoom,
 }: StatusBarProps) {
   const [stats, setStats] = useState({ words: 0, chars: 0 });
   const [showSaved, setShowSaved] = useState(false);
@@ -85,15 +87,18 @@ export function StatusBar({
         >
           {lineNumbers ? "Lines" : "No Lines"}
         </button>
-        <button onClick={onExportHtml} style={btnStyle}>
+        <button onClick={onExportHtml} style={btnStyle} title="Export as HTML">
           HTML
         </button>
-        <button onClick={onExportPdf} style={btnStyle}>
+        <button onClick={onExportPdf} style={btnStyle} title="Export as PDF">
           PDF
         </button>
-        <button onClick={onThemeChange} style={btnStyle}>
+        <button onClick={onThemeChange} style={btnStyle} title="Toggle Theme">
           {theme}
         </button>
+        <span style={{ opacity: zoom === 100 ? 0.5 : 0.7 }} title="Zoom level (Ctrl+0 to reset)">
+          {zoom}%
+        </span>
         <span className="markd-version">v{__APP_VERSION__}</span>
       </div>
     </div>
