@@ -45,7 +45,7 @@ export function Sidebar({
             className={`markd-sidebar-tab ${activeTab === "files" ? "active" : ""}`}
             onClick={() => onTabChange("files")}
           >
-            Files
+            Recent
             {heldModifier === "alt" && <span className="markd-hotkey-hint">Alt+1</span>}
           </button>
           <button

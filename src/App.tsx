@@ -320,6 +320,33 @@ export function App() {
     [fileTabs.tabs, fileTabs.closeTab, fileState.handleSave, fileState.restoreState],
   );
 
+  const handleCloseAllTabs = useCallback(async () => {
+    const dirtyTabs = fileTabs.tabs.filter((t) => t.isDirty);
+    if (dirtyTabs.length > 0) {
+      const shouldSave = window.confirm(
+        `${dirtyTabs.length} file(s) have unsaved changes.\n\nSave all before closing?`,
+      );
+      if (shouldSave) {
+        for (const tab of dirtyTabs) {
+          if (!tab.filePath) continue;
+          if (tab.id === fileTabs.activeTabId) {
+            const saved = await fileState.handleSave();
+            if (!saved) return;
+          } else {
+            await saveToFile(tab.filePath, tab.content);
+          }
+        }
+      } else {
+        const discard = window.confirm("Discard all unsaved changes?");
+        if (!discard) return;
+      }
+    }
+    for (const tab of [...fileTabs.tabs]) {
+      fileTabs.closeTab(tab.id);
+    }
+    fileState.handleNew();
+  }, [fileTabs.tabs, fileTabs.activeTabId, fileTabs.closeTab, fileState.handleSave, fileState.handleNew]);
+
   const handleNewTab = useCallback(() => {
     fileTabs.newTab();
     fileState.handleNew();
@@ -457,7 +484,11 @@ export function App() {
             break;
           case "w":
             e.preventDefault();
-            handleCloseTab(fileTabs.activeTabId);
+            if (e.shiftKey) {
+              handleCloseAllTabs();
+            } else {
+              handleCloseTab(fileTabs.activeTabId);
+            }
             break;
           case "Tab":
             e.preventDefault();
@@ -519,6 +550,7 @@ export function App() {
     fileState.handleNew,
     handleToggleSource,
     handleCloseTab,
+    handleCloseAllTabs,
     handleNewTab,
     cycleTab,
     fileTabs.activeTabId,
