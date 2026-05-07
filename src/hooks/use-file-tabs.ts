@@ -244,6 +244,14 @@ export function useFileTabs() {
     [],
   );
 
+  const closeAllTabs = useCallback((): { switchTo: FileTab } => {
+    const fresh = createTab();
+    setTabs([fresh]);
+    setActiveTabId(fresh.id);
+    queueMicrotask(() => persistTabs([fresh], fresh.id));
+    return { switchTo: fresh };
+  }, []);
+
   const markTabDirty = useCallback(
     (tabId?: string) => {
       const id = tabId ?? activeTabIdRef.current;
@@ -307,6 +315,7 @@ export function useFileTabs() {
     openInTab,
     newTab,
     closeTab,
+    closeAllTabs,
     markTabDirty,
     markTabSaved,
     hydrateTab,

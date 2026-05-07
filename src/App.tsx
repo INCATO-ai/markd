@@ -341,11 +341,9 @@ export function App() {
         if (!discard) return;
       }
     }
-    for (const tab of [...fileTabs.tabs]) {
-      fileTabs.closeTab(tab.id);
-    }
-    fileState.handleNew();
-  }, [fileTabs.tabs, fileTabs.activeTabId, fileTabs.closeTab, fileState.handleSave, fileState.handleNew]);
+    const { switchTo } = fileTabs.closeAllTabs();
+    fileState.restoreState(switchTo);
+  }, [fileTabs.tabs, fileTabs.activeTabId, fileTabs.closeAllTabs, fileState.handleSave, fileState.restoreState]);
 
   const handleNewTab = useCallback(() => {
     fileTabs.newTab();
