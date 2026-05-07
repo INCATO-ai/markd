@@ -16,6 +16,7 @@ import { useRecentFiles } from "@/hooks/use-recent-files";
 import { useFullWidth } from "@/hooks/use-full-width";
 import { useLineNumbers } from "@/hooks/use-line-numbers";
 import { useFileTabs } from "@/hooks/use-file-tabs";
+import { useZoom } from "@/hooks/use-zoom";
 import { TabBar } from "@/components/TabBar";
 import { exportAsHtml, exportAsPdf, readFileByPath, saveToFile } from "@/lib/file-system";
 
@@ -38,6 +39,7 @@ export function App() {
   const { activeTheme, switchTheme, themes } = useTheme();
   const { fullWidth, toggleFullWidth } = useFullWidth();
   const { lineNumbers, toggleLineNumbers } = useLineNumbers();
+  const { zoom, zoomIn, zoomOut, resetZoom } = useZoom();
   const fileState = useFileState();
   const { recentFiles, addRecentFile } = useRecentFiles();
   const fileTabs = useFileTabs();
@@ -466,6 +468,19 @@ export function App() {
             e.preventDefault();
             handleNewTab();
             break;
+          case "=":
+          case "+":
+            e.preventDefault();
+            zoomIn();
+            break;
+          case "-":
+            e.preventDefault();
+            zoomOut();
+            break;
+          case "0":
+            e.preventDefault();
+            resetZoom();
+            break;
         }
       }
 
@@ -507,7 +522,22 @@ export function App() {
     handleNewTab,
     cycleTab,
     fileTabs.activeTabId,
+    zoomIn,
+    zoomOut,
+    resetZoom,
   ]);
+
+  // Ctrl+MouseWheel zoom
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      if (e.deltaY < 0) zoomIn();
+      else if (e.deltaY > 0) zoomOut();
+    };
+    window.addEventListener("wheel", handleWheel, { passive: false });
+    return () => window.removeEventListener("wheel", handleWheel);
+  }, [zoomIn, zoomOut]);
 
   // Show modifier-specific hotkey hints while Ctrl or Alt is held.
   // Reads e.ctrlKey/e.altKey (physical state) instead of matching e.key,
@@ -771,6 +801,7 @@ export function App() {
           onToggleFullWidth={toggleFullWidth}
           lineNumbers={lineNumbers}
           onToggleLineNumbers={toggleLineNumbers}
+          zoom={zoom}
         />
       </div>
       <ContextMenu editor={editor} />
