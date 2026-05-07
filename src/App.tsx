@@ -399,7 +399,8 @@ export function App() {
           return;
         }
 
-        switch (e.key) {
+        const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+        switch (key) {
           case "s":
             e.preventDefault();
             if (e.shiftKey) {
