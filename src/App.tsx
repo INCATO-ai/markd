@@ -173,6 +173,20 @@ export function App() {
           ft.closeTab(tab.id);
         }
       }
+
+      // Open file passed via CLI arg / OS file association (if any).
+      // Must run after hydration so openInTab can match existing tabs
+      // and snapshotActiveTab captures hydrated (not empty) content.
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        const file = await invoke<{ path: string; name: string; content: string } | null>("get_opened_file");
+        if (file) {
+          fileTabsRef.current.openInTab(file.name, file.path, file.content);
+          fileStateRef.current.handleOpenByPath(file.path, file.content);
+        }
+      } catch {
+        // No file argument
+      }
     })();
   }, [editor]);
 
