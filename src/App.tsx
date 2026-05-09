@@ -687,14 +687,18 @@ export function App() {
 
     (async () => {
       const lastCheck = localStorage.getItem("markd-update-check");
-      if (lastCheck && Date.now() - Number(lastCheck) < 3600000) return;
+      if (lastCheck) {
+        const parsed = JSON.parse(lastCheck);
+        const sameVersion = parsed.v === __APP_VERSION__;
+        if (sameVersion && Date.now() - parsed.t < 3600000) return;
+      }
 
       const { check } = await import("@tauri-apps/plugin-updater");
       const { ask, message } = await import("@tauri-apps/plugin-dialog");
       if (cancelled) return;
 
       const update = await check();
-      localStorage.setItem("markd-update-check", String(Date.now()));
+      localStorage.setItem("markd-update-check", JSON.stringify({ t: Date.now(), v: __APP_VERSION__ }));
       if (!update) return;
 
       const shouldUpdate = await ask(
